@@ -9,7 +9,6 @@ import base64
 import json
 import pyaudio
 import sys
-import time
 import websockets
 
 URL = "wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000"
@@ -86,7 +85,6 @@ async def send_receive():
                         print(80 * "=")
                         print(text)
                         print(80 * "=")
-                        print()
                     else:
                         if text and text != last_text:
                             sys.stdout.write("\b")
@@ -100,9 +98,12 @@ async def send_receive():
                 except Exception as e:
                     assert False, "Not a websocket 4008 error"
 
-        send_result, receive_result = await asyncio.gather(send(), receive())
+        await asyncio.gather(send(), receive())
 
 
 if __name__ == "__main__":
 
-    asyncio.run(send_receive())
+    try:
+        asyncio.run(send_receive())
+    except KeyboardInterrupt:
+        sys.exit(0)
