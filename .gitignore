@@ -1,4 +1,6 @@
-target
+debug/
+target/
+
 cargo_install_root
 mzoon
 mzoon.exe
