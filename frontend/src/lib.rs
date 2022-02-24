@@ -44,8 +44,22 @@ static COLOURS: &[&'static str] = &[
 ];
 
 static NOUNS: &[&'static str] = &[
-    "table", "chair", "house", "bbq", "desk", "car", "pony", "cookie", "sandwich", "burger",
-    "pizza", "mouse", "keyboard",
+    "rocks",
+    "bikes",
+    "dogs",
+    "mountains",
+    "desert",
+    "grill",
+    "skis",
+    "pizza",
+    "sandwich",
+    "burger",
+    "tools",
+    "weights",
+    "basketball",
+    "🦑",
+    "🍔",
+    "💀",
 ];
 
 static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
@@ -155,7 +169,7 @@ fn jumbotron() -> RawHtmlEl {
             .children(array::IntoIter::new([
                 RawHtmlEl::new("div")
                     .attr("class", "col-md-6")
-                    .child(RawHtmlEl::new("h1").child("MoonZoon")),
+                    .child(RawHtmlEl::new("h1").child("Andika")),
                 RawHtmlEl::new("div")
                     .attr("class", "col-md-6")
                     .child(action_buttons()),
