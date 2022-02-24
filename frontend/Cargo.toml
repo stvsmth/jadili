@@ -2,7 +2,7 @@
 version = "0.1.0"
 name = "frontend"
 repository = "https://github.com/MoonZoon/MoonZoon"
-authors = ["Martin Kavík <martin@kavik.cz>"]
+authors = ["Steve Smith <stvsmth@gmail.com>"]
 description = "MoonZoon demo"
 categories = ["MoonZoon", "example"]
 license = "MIT"
