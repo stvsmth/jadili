@@ -89,6 +89,9 @@ async def send_receive():
                         if text and text != last_text:
                             sys.stdout.write("\b")
                             print(f"... {text}")
+
+                    # Keep track of last text, otherwise, we'll just be reprinting an identical
+                    # in-progress translation line during moments of silence.
                     last_text = text
 
                 except websockets.exceptions.ConnectionClosedError as e:
