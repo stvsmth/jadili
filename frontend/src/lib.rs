@@ -10,7 +10,7 @@ use zoon::{format, *};
 //    States
 // ------ ------
 
-static ADJECTIVES: &[&'static str] = &[
+static ADJECTIVES: &[&str] = &[
     "pretty",
     "large",
     "big",
@@ -38,12 +38,12 @@ static ADJECTIVES: &[&'static str] = &[
     "fancy",
 ];
 
-static COLOURS: &[&'static str] = &[
+static COLOURS: &[&str] = &[
     "red", "yellow", "blue", "green", "pink", "brown", "purple", "brown", "white", "black",
     "orange",
 ];
 
-static NOUNS: &[&'static str] = &[
+static NOUNS: &[&str] = &[
     "rocks",
     "bikes",
     "dogs",
@@ -137,7 +137,6 @@ fn swap_rows() {
     }
     rows.swap(1, 998)
 }
-
 fn select_row(id: ID) {
     selected_row().set(Some(id))
 }
@@ -262,3 +261,31 @@ fn row_remove_button(id: ID) -> RawHtmlEl {
 pub fn start() {
     start_app("main", root);
 }
+/*
+
+remote: warning: use of deprecated associated function `std::array::IntoIter::<T, N>::new`: use `IntoIterator::into_iter` instead
+remote:    --> frontend/src/lib.rs:156:36
+remote:     |
+remote: 156 |         .children(array::IntoIter::new([
+remote:     |                                    ^^^
+remote:     |
+remote:     = note: `#[warn(deprecated)]` on by default
+remote:
+remote: warning: use of deprecated associated function `std::array::IntoIter::<T, N>::new`: use `IntoIterator::into_iter` instead
+remote:    --> frontend/src/lib.rs:169:40
+remote:     |
+remote: 169 |             .children(array::IntoIter::new([
+remote:     |                                        ^^^
+remote:
+remote: warning: use of deprecated associated function `std::array::IntoIter::<T, N>::new`: use `IntoIterator::into_iter` instead
+remote:    --> frontend/src/lib.rs:183:36
+remote:     |
+remote: 183 |         .children(array::IntoIter::new([
+remote:     |                                    ^^^
+remote:
+remote: warning: use of deprecated associated function `std::array::IntoIter::<T, N>::new`: use `IntoIterator::into_iter` instead
+remote:    --> frontend/src/lib.rs:225:36
+remote:     |
+remote: 225 |         .children(array::IntoIter::new([
+remote:     |                                    ^^^
+*/
