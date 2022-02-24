@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# this pack is valid for apps with a MoonZoon.toml in the root
+if [ -f $1/MoonZoon.toml ]; then
+  echo "MoonZoon"
+  exit 0
+else
+  exit 1
+fi
