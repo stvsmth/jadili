@@ -3,7 +3,7 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
 };
-use std::{array, iter::repeat_with, ops::Not};
+use std::{iter::repeat_with, ops::Not};
 use zoon::{format, *};
 
 // ------ ------
@@ -152,7 +152,7 @@ fn remove_row(id: ID) {
 fn root() -> RawHtmlEl {
     RawHtmlEl::new("div")
         .attr("class", "container")
-        .children(array::IntoIter::new([
+        .children(IntoIterator::into_iter([
             jumbotron(),
             table(),
             RawHtmlEl::new("span")
@@ -165,7 +165,7 @@ fn jumbotron() -> RawHtmlEl {
     RawHtmlEl::new("div").attr("class", "jumbotron").child(
         RawHtmlEl::new("div")
             .attr("class", "row")
-            .children(array::IntoIter::new([
+            .children(IntoIterator::into_iter([
                 RawHtmlEl::new("div")
                     .attr("class", "col-md-6")
                     .child(RawHtmlEl::new("h1").child("Andika")),
@@ -179,7 +179,7 @@ fn jumbotron() -> RawHtmlEl {
 fn action_buttons() -> RawHtmlEl {
     RawHtmlEl::new("div")
         .attr("class", "row")
-        .children(array::IntoIter::new([
+        .children(IntoIterator::into_iter([
             action_button("run", "Create 1,000 rows", || create_rows(1_000)),
             action_button("runlots", "Create 10,000 rows", || create_rows(10_000)),
             action_button("add", "Append 1,000 rows", || append_rows(1_000)),
@@ -221,7 +221,7 @@ fn row(row: Arc<Row>) -> RawHtmlEl {
             "class",
             selected_row().signal_ref(move |selected_id| ((*selected_id)? == id).then(|| "danger")),
         )
-        .children(array::IntoIter::new([
+        .children(IntoIterator::into_iter([
             row_id(id),
             row_label(id, row.label.signal_cloned()),
             row_remove_button(id),
@@ -261,31 +261,3 @@ fn row_remove_button(id: ID) -> RawHtmlEl {
 pub fn start() {
     start_app("main", root);
 }
-/*
-
-remote: warning: use of deprecated associated function `std::array::IntoIter::<T, N>::new`: use `IntoIterator::into_iter` instead
-remote:    --> frontend/src/lib.rs:156:36
-remote:     |
-remote: 156 |         .children(array::IntoIter::new([
-remote:     |                                    ^^^
-remote:     |
-remote:     = note: `#[warn(deprecated)]` on by default
-remote:
-remote: warning: use of deprecated associated function `std::array::IntoIter::<T, N>::new`: use `IntoIterator::into_iter` instead
-remote:    --> frontend/src/lib.rs:169:40
-remote:     |
-remote: 169 |             .children(array::IntoIter::new([
-remote:     |                                        ^^^
-remote:
-remote: warning: use of deprecated associated function `std::array::IntoIter::<T, N>::new`: use `IntoIterator::into_iter` instead
-remote:    --> frontend/src/lib.rs:183:36
-remote:     |
-remote: 183 |         .children(array::IntoIter::new([
-remote:     |                                    ^^^
-remote:
-remote: warning: use of deprecated associated function `std::array::IntoIter::<T, N>::new`: use `IntoIterator::into_iter` instead
-remote:    --> frontend/src/lib.rs:225:36
-remote:     |
-remote: 225 |         .children(array::IntoIter::new([
-remote:     |                                    ^^^
-*/
