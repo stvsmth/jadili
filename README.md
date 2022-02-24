@@ -29,3 +29,8 @@
     ```
     - _Note_: -o / --open opens a new tab in your browser.
     - _Note_: The app is much faster when built in the release mode (`-r`).
+
+1. Deploy to Heroku
+```bash
+git push heroku main
+```
