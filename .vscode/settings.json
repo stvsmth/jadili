@@ -1,6 +1,15 @@
 {
     "cSpell.words": [
+        "Andika",
         "assemblyai",
+        "mzoon",
         "pyaudio"
-    ]
+    ],
+    "editor.formatOnSave": true,
+    "editor.formatOnType": false,
+    "rust-analyzer.rustfmt.enableRangeFormatting": true,
+    "[rust]": {
+        "editor.defaultFormatter": "matklad.rust-analyzer",
+        "editor.formatOnSave": true
+    },
 }
