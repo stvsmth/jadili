@@ -7,3 +7,5 @@ mzoon.exe
 frontend/wasm-pack*
 
 __pycache__/
+
+auth_keys.txt
