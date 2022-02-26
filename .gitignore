@@ -9,3 +9,6 @@ frontend/wasm-pack*
 __pycache__/
 
 auth_keys.txt
+
+recordings-transcripts/
+

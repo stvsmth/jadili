@@ -2,6 +2,7 @@
 members = [
     "frontend",
     "backend",
+    "research",
     "shared",
 ]
 
