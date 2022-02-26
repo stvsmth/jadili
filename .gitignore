@@ -12,3 +12,5 @@ auth_keys.txt
 
 recordings-transcripts/
 
+.DS_Store
+*.wav
