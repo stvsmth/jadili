@@ -7,6 +7,22 @@ use std::io::Read;
 use std::{env, fs};
 use tokio::time::{sleep, Duration};
 
+/* TODO
+ * About the as_str().unwrap() stuff on JSON keys
+   - See for discussion: https://github.com/serde-rs/json#operating-on-untyped-json-values
+     >>>
+     The result of square bracket indexing like v["name"] is a borrow of the data at that
+     index, so the type is &Value ...
+
+     When a Value is printed, it is printed as a JSON string. So in the code above, the output
+     looks like Please call "John Doe" at the number "+44 1234567". The quotation marks appear
+     because v["name"] is a &Value containing a JSON string and its JSON representation is
+     "John Doe". Printing as a plain string without quotation marks involves converting
+     from a JSON string to a Rust string with as_str() or avoiding the use of Value [by
+     using strongly typed data structures described] in the following section.
+     <<<
+
+*/
 #[tokio::main]
 async fn main() -> Result<()> {
     // ////////////////////////////////////////////////////////////////////////////////////////////
@@ -72,7 +88,7 @@ async fn main() -> Result<()> {
 
     // ... get the transcript id, needed for use in our next call
     let tx_id = match tx_resp.get("id") {
-        Some(status) => status.as_str().unwrap().to_string(), // TODO: Properly report error when we just have `status` (i.e. bad id value)
+        Some(status) => status.as_str().unwrap().to_string(), // TODO: Properly report error when we don't have `status` (i.e. bad id value)
         None => panic!("Bad JSON, no status key"),
     };
 
@@ -89,17 +105,20 @@ async fn main() -> Result<()> {
             .await?;
 
         let status = match poll_resp.get("status") {
-            Some(tx_status) => (tx_status.as_str().unwrap().to_string()), // TODO: Uh, what? https://stackoverflow.com/a/53378985/58371
+            Some(tx_status) => (tx_status.as_str().unwrap().to_string()),
             None => panic!("Missing status key."),
         };
 
         if status == "completed" {
             println!("Transcript: {}", poll_resp.get("text").unwrap());
+            let json_filename = format!("{}.json", filename);
+            let pretty_json = serde_json::to_string_pretty(&poll_resp).unwrap();
+            let out = std::fs::File::create(json_filename).unwrap();
+            serde_json::to_writer(out, &pretty_json).unwrap();
             break;
         }
-        // TODO: Dump the whole JSON response into a file.
         println!("... status: {}", status);
-        sleep(Duration::from_millis(10000)).await;
+        sleep(Duration::from_millis(5000)).await;
     }
 
     Ok(())
