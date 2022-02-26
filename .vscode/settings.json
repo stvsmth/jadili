@@ -3,7 +3,9 @@
         "Andika",
         "assemblyai",
         "mzoon",
-        "pyaudio"
+        "pyaudio",
+        "reqwest",
+        "serde"
     ],
     "editor.formatOnSave": true,
     "editor.formatOnType": false,
@@ -11,5 +13,5 @@
     "[rust]": {
         "editor.defaultFormatter": "matklad.rust-analyzer",
         "editor.formatOnSave": true
-    },
+    }
 }
