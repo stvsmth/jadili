@@ -1,4 +1,18 @@
-//! The input data is recorded to "$CARGO_MANIFEST_DIR/recorded.wav".
+/* Cargo.toml
+
+[package]
+name = "research"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+anyhow = "1"
+clap = "3"
+cpal = "0.13"
+hound = "3"
+*/
+
+// https://github.com/RustAudio/cpal/blob/master/examples/record_wav.rs
 
 extern crate anyhow;
 extern crate clap;
