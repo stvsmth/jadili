@@ -91,12 +91,11 @@ async fn main() -> Result<()> {
             .json::<TranscriptResp>()
             .await?;
 
-        if &poll_resp.status == "completed" {
-            // println!("Transcript: {}", &poll_resp.text.unwrap());
+        if poll_resp.status == "completed" {
+            // println!("Transcript: {}", poll_resp.text.unwrap());
             let json_filename = format!("{}.json", filename);
-            let pretty_json = serde_json::to_string_pretty(&poll_resp).unwrap();
             let out = File::create(json_filename).unwrap();
-            serde_json::to_writer(out, &pretty_json).unwrap();
+            serde_json::to_writer(out, &poll_resp).unwrap();
             break;
         }
         println!("... status: {}", poll_resp.status);
@@ -118,7 +117,14 @@ type Speaker = Option<String>; // A, B, C ... will revisit; maybe char? or char[
 
 // Discussion of validators for Rust json/structs
 // https://blog.logrocket.com/json-input-validation-in-rust-web-services/
-
+// 
+// Serde has the ability to add default values, maybe this is handy? Maybe we want null?
+// https://serde.rs/attr-default.html
+// For example, probably better to have `null` words rather than an empty Vec we need to get
+// length of before moving forward.
+//
+// Also think about escape sequences (\n)
+// https://d3lm.medium.com/rust-beware-of-escape-sequences-85ec90e9e243
 #[derive(Serialize, Deserialize, Debug)]
 struct Word {
     confidence: f32,
