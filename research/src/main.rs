@@ -7,22 +7,6 @@ use std::io::Read;
 use std::{env, fs};
 use tokio::time::{sleep, Duration};
 
-/* TODO
- * About the as_str().unwrap() stuff on JSON keys
-   - See for discussion: https://github.com/serde-rs/json#operating-on-untyped-json-values
-     >>>
-     The result of square bracket indexing like v["name"] is a borrow of the data at that
-     index, so the type is &Value ...
-
-     When a Value is printed, it is printed as a JSON string. So in the code above, the output
-     looks like Please call "John Doe" at the number "+44 1234567". The quotation marks appear
-     because v["name"] is a &Value containing a JSON string and its JSON representation is
-     "John Doe". Printing as a plain string without quotation marks involves converting
-     from a JSON string to a Rust string with as_str() or avoiding the use of Value [by
-     using strongly typed data structures described] in the following section.
-     <<<
-
-*/
 #[tokio::main]
 async fn main() -> Result<()> {
     // ////////////////////////////////////////////////////////////////////////////////////////////
@@ -49,8 +33,10 @@ async fn main() -> Result<()> {
     auth_value.set_sensitive(true);
     headers.insert(header::AUTHORIZATION, auth_value);
 
-    let content_type = header::HeaderValue::from_static("application/json");
-    headers.insert(header::CONTENT_TYPE, content_type);
+    headers.insert(
+        header::CONTENT_TYPE,
+        header::HeaderValue::from_static("application/json"),
+    );
 
     let client = reqwest::Client::builder()
         .default_headers(headers)
@@ -82,7 +68,7 @@ async fn main() -> Result<()> {
         .json(&params)
         .send()
         .await?
-        .json::<serde_json::Value>()
+        .json::<serde_json::Value>() // TODO: create TranscriptPost struct
         .await?;
     println!("Transcript requested");
 
@@ -91,6 +77,7 @@ async fn main() -> Result<()> {
         Some(status) => status.as_str().unwrap().to_string(), // TODO: Properly report error when we don't have `status` (i.e. bad id value)
         None => panic!("Bad JSON, no status key"),
     };
+    println!("tx_id {:?}", tx_id);
 
     // ////////////////////////////////////////////////////////////////////////////////////////////
     // Poll the endpoint for a finished state
@@ -101,30 +88,122 @@ async fn main() -> Result<()> {
             .get(&poll_url)
             .send()
             .await?
-            .json::<serde_json::Value>()
+            .json::<TranscriptResp>()
             .await?;
 
-        let status = match poll_resp.get("status") {
-            Some(tx_status) => (tx_status.as_str().unwrap().to_string()),
-            None => panic!("Missing status key."),
-        };
-
-        if status == "completed" {
-            println!("Transcript: {}", poll_resp.get("text").unwrap());
+        if &poll_resp.status == "completed" {
+            // println!("Transcript: {}", &poll_resp.text.unwrap());
             let json_filename = format!("{}.json", filename);
             let pretty_json = serde_json::to_string_pretty(&poll_resp).unwrap();
-            let out = std::fs::File::create(json_filename).unwrap();
+            let out = File::create(json_filename).unwrap();
             serde_json::to_writer(out, &pretty_json).unwrap();
             break;
         }
-        println!("... status: {}", status);
-        sleep(Duration::from_millis(5000)).await;
+        println!("... status: {}", poll_resp.status);
+        sleep(Duration::from_millis(3000)).await;
     }
 
     Ok(())
 }
 
+// ////////////////////////////////////////////////////////////////////////////////////////////
+// Types AAI data structures (used in deserialize calls)
+
 #[derive(Serialize, Deserialize, Debug)]
 struct UploadResp {
     upload_url: String, // url of file we uploaded (only accessible from AAI servers)
+}
+
+type Speaker = Option<String>; // A, B, C ... will revisit; maybe char? or char[2]?
+
+// Discussion of validators for Rust json/structs
+// https://blog.logrocket.com/json-input-validation-in-rust-web-services/
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Word {
+    confidence: f32,
+    end: usize,
+    speaker: Speaker,
+    start: usize,
+    text: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Utterance {
+    confidence: f32,
+    end: usize,
+    speaker: Speaker,
+    start: usize,
+    text: String,
+    words: Vec<Word>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Sentiment {
+    text: String,
+    start: usize,
+    end: usize,
+    sentiment: String, // POSITIVE, NEGATIVE, NEUTRAL
+    confidence: f32,
+    speaker: Option<Speaker>,
+}
+
+// #[derive(Serialize, Deserialize, Debug)]
+// struct SafetyLabels {
+//   results: Vec<???>,
+//   status: String,  // unavailable,???
+//   summary: {},
+// },
+
+// #[derive(Serialize, Deserialize, Debug)]
+// struct IabCategories: {
+//   results: Vec<???>,
+//   status: String,  // unavailable,???
+//   summary: {},
+// }
+
+#[derive(Serialize, Deserialize, Debug)]
+struct TranscriptResp {
+    // https://docs.assemblyai.com/core-transcription
+    acoustic_model: String,
+    audio_duration: Option<usize>,   // in seconds
+    audio_end_at: Option<usize>,     // in ms
+    audio_start_from: Option<usize>, // in ms
+    audio_url: String,
+    auto_chapters: bool,
+    auto_highlights: bool,
+    auto_highlights_result: Option<Vec<serde_json::Value>>, // Option(Vec<Highlights>)
+    boost_param: Option<String>,                            // low, default, hight
+    chapters: Option<Vec<serde_json::Value>>,               // Some<Vec<Chapter>>
+    confidence: Option<f32>,
+    content_safety: bool,
+    content_safety_labels: serde_json::Value, // Option(Vec<SafetyLabel>>)
+    disfluencies: bool,
+    dual_channel: Option<bool>,
+    entities: Option<Vec<Speaker>>,
+    entity_detection: bool,
+    filter_profanity: bool,
+    format_text: bool,
+    iab_categories: bool,
+    iab_categories_result: serde_json::Value, // Option(<Vec<IabCategories>>)
+    id: String,
+    language_code: String, // default: en_us:  en, en_au, en_uk, en_us, fr, de, it, es
+    language_model: String, // default: assemblyai_default:
+    punctuate: bool,
+    redact_pii: bool,
+    redact_pii_audio: bool,
+    redact_pii_audio_quality: Option<String>, // TODO: ????
+    redact_pii_policies: Option<bool>,
+    redact_pii_sub: Option<String>, // entity_type, hash
+    sentiment_analysis: bool,
+    sentiment_analysis_results: Option<Vec<Sentiment>>,
+    speaker_labels: bool,
+    speed_boost: bool,
+    status: String, // queued, processing, completed, error
+    text: Option<String>,
+    utterances: Option<Vec<Utterance>>,
+    webhook_status_code: Option<usize>,
+    webhook_url: Option<String>,
+    words: Option<Vec<Word>>,
+    word_boost: Vec<String>,
 }
