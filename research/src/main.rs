@@ -87,12 +87,13 @@ async fn main() -> Result<()> {
         if poll_resp.status == "completed" {
             // println!("Transcript: {}", poll_resp.text.unwrap());
             let json_filename = format!("{}.json", filename);
-            let out = File::create(json_filename).unwrap();
+            let out = File::create(&json_filename).unwrap();
             serde_json::to_writer(out, &poll_resp).unwrap();
+            println!("Done! Transcript in {}", &json_filename);
             break;
         }
         println!("... status: {}", poll_resp.status);
-        sleep(Duration::from_millis(3000)).await;
+        sleep(Duration::from_millis(5000)).await;
     }
 
     Ok(())
