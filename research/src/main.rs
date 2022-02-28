@@ -45,15 +45,8 @@ async fn main() -> Result<()> {
     // ////////////////////////////////////////////////////////////////////////////////////////////
     // POST our file to the server, and get the location from the response
     let up_url = "https://api.assemblyai.com/v2/upload";
-    let up_resp = client.post(up_url).body(recording).send().await.unwrap(); // TODO ...handle this
-
-    let upload_loc = match up_resp.status() {
-        reqwest::StatusCode::OK => match up_resp.json::<UploadResp>().await {
-            Ok(up_resp) => up_resp.upload_url,
-            Err(_) => panic!("Hmm, parsing failure."),
-        },
-        other => panic!("Bad request {:?}", other),
-    };
+    let up_resp = client.post(up_url).body(recording).send().await?;
+    let upload_loc = up_resp.json::<UploadResp>().await?.upload_url;
     println!("Upload location: {:?}", upload_loc);
 
     // ////////////////////////////////////////////////////////////////////////////////////////////
