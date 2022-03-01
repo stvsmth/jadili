@@ -150,13 +150,46 @@ struct Sentiment {
 //   summary: {},
 // },
 
-// #[derive(Serialize, Deserialize, Debug)]
-// struct IabCategories: {
-//   results: Vec<???>,
-//   status: String,  // unavailable,???
-//   summary: {},
-// }
+/*
+type IabCategorySummary = HashMap<String, f32>;
 
+#[derive(Serialize, Deserialize, Debug)]
+struct Timestamp {
+    start: usize,
+    end: usize,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct IabLabel {
+    relevance: f32,
+    label: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct IabCategoriesResult {
+  results: Vec<IabLabel>,
+  status: String,  // unavailable,???
+  summary: IabCategorySummary,
+}
+    // Sample JSON response for categories
+    "iab_categories_result": {
+        "status": "success",
+        "results": [
+            {
+                "text": "We're in the battle for the soul of America. We're ready to build this majority. We need big ideas. We are in this together. It's time for us to remember who we are. This is a fight that is born out of optimism. It's also about how we govern because we are one America. I'm talking about changing Washington to restore the principles of integrity. Let's show them what we've got. Let's show them what humanity can do.",
+                "labels": [
+                    {
+                        "relevance": 0.9542697072029114,
+                        "label": "NewsAndPolitics>Politics>PoliticalIssues"
+                    },
+  
+                ],
+                "timestamp": {
+                    "start": 1150,
+                    "end": 36080
+                }
+            },
+*/
 #[derive(Serialize, Deserialize, Debug)]
 struct Transcript {
     // https://docs.assemblyai.com/core-transcription
