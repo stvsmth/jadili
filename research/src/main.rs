@@ -61,27 +61,22 @@ async fn main() -> Result<()> {
         .json(&params)
         .send()
         .await?
-        .json::<serde_json::Value>() // TODO: create TranscriptPost struct
+        .json::<Transcript>() 
         .await?;
     println!("Transcript requested");
 
-    // ... get the transcript id, needed for use in our next call
-    let tx_id = match tx_resp.get("id") {
-        Some(status) => status.as_str().unwrap().to_string(), // TODO: Properly report error when we don't have `status` (i.e. bad id value)
-        None => panic!("Bad JSON, no status key"),
-    };
-    println!("tx_id {:?}", tx_id);
+    println!("tx_id {:?}", tx_resp.id);
 
     // ////////////////////////////////////////////////////////////////////////////////////////////
     // Poll the endpoint for a finished state
     println!("Polling the transcript");
     loop {
-        let poll_url = format!("{}/{}", tx_url, tx_id);
+        let poll_url = format!("{}/{}", tx_url, tx_resp.id);
         let poll_resp = client
             .get(&poll_url)
             .send()
             .await?
-            .json::<TranscriptResp>()
+            .json::<Transcript>()
             .await?;
 
         if poll_resp.status == "completed" {
@@ -163,7 +158,7 @@ struct Sentiment {
 // }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct TranscriptResp {
+struct Transcript {
     // https://docs.assemblyai.com/core-transcription
     acoustic_model: String,
     audio_duration: Option<usize>,   // in seconds
