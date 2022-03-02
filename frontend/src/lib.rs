@@ -25,16 +25,16 @@ fn selected_row() -> &'static Mutable<Option<ID>> {
 }
 
 #[static_ref]
-fn rows() -> &'static MutableVec<Arc<Row>> {
+fn rows() -> &'static MutableVec<Arc<Block>> {
     MutableVec::new()
 }
 
 type ID = usize;
 
-struct Row {
+struct Block {
     id: ID,
     speaker: Mutable<String>,
-    label: Mutable<String>,
+    text: Mutable<String>,
 }
 
 // ------ ------
@@ -49,17 +49,17 @@ fn rows_exist() -> impl Signal<Item = bool> {
 //   Commands
 // ------ ------
 
-fn create_row() -> Arc<Row> {
+fn create_row() -> Arc<Block> {
     let range = rand::thread_rng().gen_range(7..150);
     let speaker = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K']
         .choose(&mut rand::thread_rng())
         .unwrap()
         .to_string();
     let label = lipsum_words(range);
-    Arc::new(Row {
+    Arc::new(Block {
         id: NEXT_ID.fetch_add(1, Ordering::SeqCst),
         speaker: Mutable::new(speaker),
-        label: Mutable::new(label),
+        text: Mutable::new(label),
     })
 }
 
@@ -82,7 +82,7 @@ fn edit_row(id: ID) {
     let elem = rows.into_iter().filter(|row| row.id == id).take(1).next();
     match elem {
         Some(row) => {
-            let mut content = row.label.lock_mut();
+            let mut content = row.text.lock_mut();
             let range = rand::thread_rng().gen_range(5..80);
             content.replace_range(.., lipsum_words(range).as_str());
         }
@@ -156,7 +156,7 @@ fn table() -> RawHtmlEl {
         }))
 }
 
-fn row(row: Arc<Row>) -> RawHtmlEl {
+fn row(row: Arc<Block>) -> RawHtmlEl {
     let id = row.id;
     RawHtmlEl::new("tr")
         .attr_signal(
@@ -166,7 +166,7 @@ fn row(row: Arc<Row>) -> RawHtmlEl {
         .children(IntoIterator::into_iter([
             row_id(id),
             row_speaker(id, row.speaker.signal_cloned()),
-            row_text(id, row.label.signal_cloned()),
+            row_text(id, row.text.signal_cloned()),
             row_edit_button(id),
             row_remove_button(id),
             RawHtmlEl::new("td").attr("class", "col-md-6"),
