@@ -51,7 +51,7 @@ fn rows_exist() -> impl Signal<Item = bool> {
 
 fn create_row() -> Arc<Block> {
     let range = rand::thread_rng().gen_range(7..150);
-    let speaker = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K']
+    let speaker = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
         .choose(&mut rand::thread_rng())
         .unwrap()
         .to_string();
@@ -146,7 +146,7 @@ fn action_button(id: &'static str, title: &'static str, on_click: fn()) -> RawHt
 
 fn table() -> RawHtmlEl {
     RawHtmlEl::new("table")
-        .attr("class", "table table-hover table-striped test-data")
+        .attr("class", "table test-data")
         .child_signal(rows_exist().map(|rows_exist| {
             rows_exist.then(|| {
                 RawHtmlEl::new("tbody")
@@ -158,11 +158,15 @@ fn table() -> RawHtmlEl {
 
 fn row(row: Arc<Block>) -> RawHtmlEl {
     let id = row.id;
+    let speaker = row.speaker.get_cloned();
+    let speaker_id = speaker.as_str();
     RawHtmlEl::new("tr")
         .attr_signal(
             "class",
-            selected_row().signal_ref(move |selected_id| ((*selected_id)? == id).then(|| "danger")),
+            selected_row()
+                .signal_ref(move |selected_id| ((*selected_id)? == id).then(|| "current")),
         )
+        .attr("class", speaker_id)
         .children(IntoIterator::into_iter([
             row_id(id),
             row_speaker(id, row.speaker.signal_cloned()),
@@ -185,10 +189,10 @@ fn row_speaker(id: ID, speaker: impl Signal<Item = String> + Unpin + 'static) ->
     )
 }
 
-fn row_text(id: ID, label: impl Signal<Item = String> + Unpin + 'static) -> RawHtmlEl {
-    RawHtmlEl::new("td").attr("class", "col-md-4").child(
+fn row_text(_id: ID, label: impl Signal<Item = String> + Unpin + 'static) -> RawHtmlEl {
+    RawHtmlEl::new("td").attr("class", "col-md-6").child(
         RawHtmlEl::new("div")
-            .event_handler(move |_: events::Click| select_row(id))
+            // .event_handler(move |_: events::Click| select_row(id))
             .child(Text::with_signal(label)),
     )
 }
