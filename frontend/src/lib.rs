@@ -113,7 +113,7 @@ fn jumbotron() -> RawHtmlEl {
             .children(IntoIterator::into_iter([
                 RawHtmlEl::new("div")
                     .attr("class", "col-md-6")
-                    .child(RawHtmlEl::new("h1").child("Andika")),
+                    .child(RawHtmlEl::new("h1").child("Jadili")),
                 RawHtmlEl::new("div")
                     .attr("class", "col-md-6")
                     .child(action_buttons()),
