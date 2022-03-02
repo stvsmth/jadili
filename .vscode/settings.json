@@ -4,6 +4,7 @@
         "assemblyai",
         "bindgen",
         "disfluencies",
+        "getrandom",
         "lipsum",
         "mzoon",
         "pyaudio",
