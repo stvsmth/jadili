@@ -55,11 +55,11 @@ fn create_row() -> Arc<Block> {
         .choose(&mut rand::thread_rng())
         .unwrap()
         .to_string();
-    let label = lipsum_words(range);
+    let text = lipsum_words(range);
     Arc::new(Block {
         id: NEXT_ID.fetch_add(1, Ordering::SeqCst),
         speaker: Mutable::new(speaker),
-        text: Mutable::new(label),
+        text: Mutable::new(text),
     })
 }
 
@@ -189,11 +189,11 @@ fn row_speaker(id: ID, speaker: impl Signal<Item = String> + Unpin + 'static) ->
     )
 }
 
-fn row_text(_id: ID, label: impl Signal<Item = String> + Unpin + 'static) -> RawHtmlEl {
+fn row_text(_id: ID, text: impl Signal<Item = String> + Unpin + 'static) -> RawHtmlEl {
     RawHtmlEl::new("td").attr("class", "col-md-6").child(
         RawHtmlEl::new("div")
             // .event_handler(move |_: events::Click| select_row(id))
-            .child(Text::with_signal(label)),
+            .child(Text::with_signal(text)),
     )
 }
 
