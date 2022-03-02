@@ -34,4 +34,7 @@
 
 ```bash
 git push heroku main
+
+# Or, if you're still in a position where force-push might be appropriate
+git push --force heroku main
 ```
