@@ -309,7 +309,9 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 name = "backend"
 version = "0.1.0"
 dependencies = [
+ "lipsum",
  "moon",
+ "shared",
 ]
 
 [[package]]
@@ -594,6 +596,7 @@ dependencies = [
  "getrandom",
  "lipsum",
  "rand 0.8.4",
+ "shared",
  "zoon",
 ]
 
@@ -1798,6 +1801,9 @@ dependencies = [
 [[package]]
 name = "shared"
 version = "0.1.0"
+dependencies = [
+ "moonlight",
+]
 
 [[package]]
 name = "signal-hook-registry"
