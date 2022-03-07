@@ -6,7 +6,7 @@ use moonlight::*;
 #[serde(crate = "serde")]
 pub enum UpMsg {
     ChooseEvent(EventChoiceMessage),
-    SendBlock(BlockMessage),
+    EditBlock(BlockMessage),
 }
 
 // ------ DownMsg ------
@@ -14,8 +14,9 @@ pub enum UpMsg {
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(crate = "serde")]
 pub enum DownMsg {
-    BlockReceived(BlockMessage),
     EventSelected(EventStreamMessage),
+    BlockCreated(BlockMessage),
+    BlockEdited(BlockMessage),
 }
 
 // ------ Message ------
@@ -34,6 +35,7 @@ pub struct EventStreamMessage {
     pub id: usize,
     pub data: String,
 }
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(crate = "serde")]
 pub struct EventChoiceMessage {

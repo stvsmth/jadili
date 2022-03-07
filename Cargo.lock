@@ -311,6 +311,7 @@ version = "0.1.0"
 dependencies = [
  "lipsum",
  "moon",
+ "rand 0.8.4",
  "shared",
 ]
 

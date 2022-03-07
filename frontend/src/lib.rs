@@ -1,12 +1,7 @@
-use lipsum::lipsum_words;
-use rand::prelude::*;
 use shared::{BlockMessage, EventChoiceMessage};
 use shared::{DownMsg, UpMsg};
-use std::sync::{
-    atomic::{AtomicUsize, Ordering},
-    Arc,
-};
-use std::{iter::repeat_with, ops::Not};
+use std::ops::Not;
+use std::sync::Arc;
 use zoon::{
     eprintln, println, static_ref, Connection, Mutable, MutableVec, RawHtmlEl, Signal, Task, Text,
     *,
@@ -21,23 +16,22 @@ use zoon::{
 //    States
 // ------ ------
 
-static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
-
 #[static_ref]
 fn selected_row() -> &'static Mutable<Option<Id>> {
     Mutable::new(None)
 }
 
 #[static_ref]
-fn rows() -> &'static MutableVec<Arc<Block>> {
+fn rows() -> &'static MutableVec<Arc<RenderBlock>> {
     MutableVec::new()
 }
 
 type Id = usize;
 
-struct Block {
-    id: Id,
-    speaker: Mutable<String>, // TODO: Remove mutable
+#[derive(Debug)]
+struct RenderBlock {
+    id: usize,
+    speaker: String,
     text: Mutable<String>,
 }
 
@@ -50,24 +44,24 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
             DownMsg::EventSelected(msg) => {
                 println!("Chose event {:?}, cor_id: {}", msg.id, cor_id);
             }
-            DownMsg::BlockReceived(msg) => {
+            DownMsg::BlockCreated(msg) => {
+                println!("Block created {}", msg.id);
+                let block = RenderBlock {
+                    id: msg.id,
+                    speaker: msg.speaker,
+                    text: Mutable::new(msg.text),
+                };
+                rows().lock_mut().push_cloned(Arc::new(block));
+            }
+            DownMsg::BlockEdited(msg) => {
+                println!("Block edited: {}", msg.id);
                 let rows = rows().lock_ref();
-                let elem = rows
+                let block_to_update = rows
                     .into_iter()
                     .filter(|row| row.id == msg.id)
-                    .take(1)
-                    .next();
-                match elem {
-                    Some(row) => {
-                        let mut content = row.text.lock_mut();
-                        content.replace_range(.., msg.text.as_str());
-                    }
-                    None => {
-                        // no existing block, create one
-                        // rows().lock_mut().add(create_row);
-                        println!("Create a row with : {:?}", msg.text);
-                    }
-                }
+                    .next()
+                    .unwrap();
+                block_to_update.text.lock_mut().replace_range(.., &msg.text);
             }
         }
     })
@@ -84,13 +78,15 @@ fn rows_exist() -> impl Signal<Item = bool> {
 //   Commands
 // ------ ------
 
-fn pull_block_data(id: Id) {
+fn edit_block(id: Id) {
     Task::start(async move {
+        let rows = rows().lock_ref();
+        let new_data = rows.into_iter().filter(|row| row.id == id).next().unwrap();
         let result = connection()
-            .send_up_msg(UpMsg::SendBlock(BlockMessage {
+            .send_up_msg(UpMsg::EditBlock(BlockMessage {
                 id,
-                speaker: "Z".to_string(),
-                text: "Todo".to_string(),
+                speaker: new_data.speaker.to_string(),
+                text: "Foobar says the senator".to_string(), // new_data.speaker.clone(),
             }))
             .await;
         if let Err(error) = result {
@@ -110,26 +106,6 @@ fn choose_event(event_id: usize) {
     });
 }
 
-fn create_row() -> Arc<Block> {
-    let range = rand::thread_rng().gen_range(7..150);
-    let speaker = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
-        .choose(&mut rand::thread_rng())
-        .unwrap()
-        .to_string();
-    let text = lipsum_words(range);
-    Arc::new(Block {
-        id: NEXT_ID.fetch_add(1, Ordering::SeqCst),
-        speaker: Mutable::new(speaker),
-        text: Mutable::new(text),
-    })
-}
-
-fn fetch_rows(count: usize) {
-    rows()
-        .lock_mut()
-        .extend(repeat_with(create_row).take(count));
-}
-
 fn select_row(id: Id) {
     selected_row().set(Some(id))
 }
@@ -137,19 +113,6 @@ fn select_row(id: Id) {
 fn remove_row(id: Id) {
     rows().lock_mut().retain(|row| row.id != id);
 }
-
-// fn edit_row(id: Id) {
-//     let rows = rows().lock_ref();
-//     let elem = rows.into_iter().filter(|row| row.id == id).take(1).next();
-//     match elem {
-//         Some(row) => {
-//             let mut content = row.text.lock_mut();
-//             let range = rand::thread_rng().gen_range(5..80);
-//             content.replace_range(.., lipsum_words(range).as_str());
-//         }
-//         None => panic!("Hmmm, no row with that id, that shouldn't happen."),
-//     }
-// }
 
 // ------ ------
 //     View
@@ -183,10 +146,11 @@ fn jumbotron() -> RawHtmlEl {
 }
 
 fn action_buttons() -> RawHtmlEl {
-    RawHtmlEl::new("div").attr("class", "row").children([
-        action_button("select-event", "Select Event", || choose_event(1)),
-        action_button("add", "Fetch 5 rows", || fetch_rows(5)),
-    ])
+    RawHtmlEl::new("div")
+        .attr("class", "row")
+        .children([action_button("select-event", "Select Event", || {
+            choose_event(1)
+        })])
 }
 
 fn action_button(id: &'static str, title: &'static str, on_click: fn()) -> RawHtmlEl {
@@ -214,21 +178,19 @@ fn table() -> RawHtmlEl {
         }))
 }
 
-fn row(row: Arc<Block>) -> RawHtmlEl {
-    let id = row.id;
-    let speaker = row.speaker.get_cloned();
-    let speaker_id = speaker.as_str();
+fn row(block: Arc<RenderBlock>) -> RawHtmlEl {
+    let id = block.id;
     RawHtmlEl::new("tr")
         .attr_signal(
             "class",
             selected_row()
                 .signal_ref(move |selected_id| ((*selected_id)? == id).then(|| "current")),
         )
-        .attr("class", speaker_id)
+        .attr("class", block.speaker.as_str())
         .children(IntoIterator::into_iter([
             row_id(id),
-            row_speaker(id, row.speaker.signal_cloned()),
-            row_text(id, row.text.signal_cloned()),
+            row_speaker(id, block.speaker.clone()),
+            row_text(id, block.text.signal_cloned()),
             row_edit_button(id),
             row_remove_button(id),
             RawHtmlEl::new("td").attr("class", "col-md-6"),
@@ -239,11 +201,11 @@ fn row_id(id: Id) -> RawHtmlEl {
     RawHtmlEl::new("td").attr("class", "col-md-1").child(id)
 }
 
-fn row_speaker(id: Id, speaker: impl Signal<Item = String> + Unpin + 'static) -> RawHtmlEl {
+fn row_speaker(id: Id, speaker: String) -> RawHtmlEl {
     RawHtmlEl::new("td").attr("class", "col-md-1").child(
         RawHtmlEl::new("a")
             .event_handler(move |_: events::Click| select_row(id))
-            .child(Text::with_signal(speaker)),
+            .child(Text::new(speaker)),
     )
 }
 
@@ -258,8 +220,7 @@ fn row_text(_id: Id, text: impl Signal<Item = String> + Unpin + 'static) -> RawH
 fn row_edit_button(id: Id) -> RawHtmlEl {
     RawHtmlEl::new("td").attr("class", "col-md-1").child(
         RawHtmlEl::new("a")
-            // .event_handler(move |_: events::Click| edit_row(id))
-            .event_handler(move |_: events::Click| pull_block_data(id))
+            .event_handler(move |_: events::Click| edit_block(id))
             .child(
                 RawHtmlEl::new("span")
                     .attr("class", "glyphicon glyphicon-edit edit")

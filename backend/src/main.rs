@@ -1,7 +1,9 @@
-use lipsum::lipsum_words;
-use moon::*;
-use moon::tokio::time::{sleep, Duration};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
+use lipsum::lipsum_words;
+use moon::tokio::time::{sleep, Duration};
+use moon::*;
+use rand::prelude::*;
 use shared::{BlockMessage, DownMsg, EventStreamMessage, UpMsg};
 
 async fn frontend() -> Frontend {
@@ -17,9 +19,8 @@ async fn up_msg_handler(req: UpMsgRequest<UpMsg>) {
     let UpMsgRequest { up_msg, cor_id, .. } = req;
 
     match up_msg {
-        UpMsg::SendBlock(mut block) => {
-            block.text = lipsum_words(7);
-            sessions::broadcast_down_msg(&DownMsg::BlockReceived(block), cor_id).await;
+        UpMsg::EditBlock(block) => {
+            sessions::broadcast_down_msg(&DownMsg::BlockEdited(block), cor_id).await;
         }
         UpMsg::ChooseEvent(event) => {
             let stream = EventStreamMessage {
@@ -27,25 +28,26 @@ async fn up_msg_handler(req: UpMsgRequest<UpMsg>) {
                 data: lipsum_words(5),
             };
             sessions::broadcast_down_msg(&DownMsg::EventSelected(stream), cor_id).await;
-            // let range = rand::thread_rng().gen_range(7..150);
-            // let speaker = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
-            let mut id = 1;
+            let range = rand::thread_rng().gen_range(7..50);
+            static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
             loop {
+                let speaker = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+                    .choose(&mut rand::thread_rng())
+                    .unwrap()
+                    .to_string();
                 let block = BlockMessage {
-                    id,
-                    text: lipsum_words(12),
-                    speaker: "A".to_string(),
+                    id: NEXT_ID.fetch_add(1, Ordering::SeqCst),
+                    text: lipsum_words(range),
+                    speaker,
                 };
-                sessions::broadcast_down_msg(&DownMsg::BlockReceived(block), cor_id).await;
-                id += 1;
+
+                sessions::broadcast_down_msg(&DownMsg::BlockCreated(block), cor_id).await;
+
                 sleep(Duration::from_millis(3000)).await;
             }
         }
     }
 }
-// async fn get_transcript_data(id: usize) {
-//     let data = lipsum_words(5);
-// }
 
 #[moon::main]
 async fn main() -> std::io::Result<()> {
