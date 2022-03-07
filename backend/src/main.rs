@@ -1,6 +1,8 @@
 use lipsum::lipsum_words;
 use moon::*;
-use shared::{DownMsg, UpMsg, EventStreamMessage};
+use moon::tokio::time::{sleep, Duration};
+
+use shared::{BlockMessage, DownMsg, EventStreamMessage, UpMsg};
 
 async fn frontend() -> Frontend {
     Frontend::new()
@@ -20,11 +22,30 @@ async fn up_msg_handler(req: UpMsgRequest<UpMsg>) {
             sessions::broadcast_down_msg(&DownMsg::BlockReceived(block), cor_id).await;
         }
         UpMsg::ChooseEvent(event) => {
-            let stream = EventStreamMessage{id: event.id, data: 42};
+            let stream = EventStreamMessage {
+                id: event.id,
+                data: lipsum_words(5),
+            };
             sessions::broadcast_down_msg(&DownMsg::EventSelected(stream), cor_id).await;
+            // let range = rand::thread_rng().gen_range(7..150);
+            // let speaker = ['A', 'B', 'C', 'D', 'E', 'F', 'G'];
+            let mut id = 1;
+            loop {
+                let block = BlockMessage {
+                    id,
+                    text: lipsum_words(12),
+                    speaker: "A".to_string(),
+                };
+                sessions::broadcast_down_msg(&DownMsg::BlockReceived(block), cor_id).await;
+                id += 1;
+                sleep(Duration::from_millis(3000)).await;
+            }
         }
     }
 }
+// async fn get_transcript_data(id: usize) {
+//     let data = lipsum_words(5);
+// }
 
 #[moon::main]
 async fn main() -> std::io::Result<()> {

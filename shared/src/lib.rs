@@ -32,7 +32,7 @@ pub struct BlockMessage {
 #[serde(crate = "serde")]
 pub struct EventStreamMessage {
     pub id: usize,
-    pub data: usize,
+    pub data: String,
 }
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(crate = "serde")]

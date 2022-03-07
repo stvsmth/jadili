@@ -8,7 +8,8 @@ use std::sync::{
 };
 use std::{iter::repeat_with, ops::Not};
 use zoon::{
-    println, eprintln, static_ref, Connection, Mutable, MutableVec, RawHtmlEl, Signal, Task, Text, *,
+    eprintln, println, static_ref, Connection, Mutable, MutableVec, RawHtmlEl, Signal, Task, Text,
+    *,
 };
 
 // ------ ------
@@ -40,7 +41,6 @@ struct Block {
     text: Mutable<String>,
 }
 
-
 #[static_ref]
 pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
     Connection::new(|down_msg, cor_id| {
@@ -48,20 +48,27 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
 
         match down_msg {
             DownMsg::EventSelected(msg) => {
-               println!("Chose event {:?}", msg.data); 
-               println!("cor_Id {}", cor_id); 
-            },
+                println!("Chose event {:?}, cor_id: {}", msg.id, cor_id);
+            }
             DownMsg::BlockReceived(msg) => {
                 let rows = rows().lock_ref();
-                let elem = rows.into_iter().filter(|row| row.id == msg.id).take(1).next();
+                let elem = rows
+                    .into_iter()
+                    .filter(|row| row.id == msg.id)
+                    .take(1)
+                    .next();
                 match elem {
                     Some(row) => {
                         let mut content = row.text.lock_mut();
                         content.replace_range(.., msg.text.as_str());
                     }
-                    None => eprintln!("Hmmm, no row with that id, that shouldn't happen."),   
+                    None => {
+                        // no existing block, create one
+                        // rows().lock_mut().add(create_row);
+                        println!("Create a row with : {:?}", msg.text);
+                    }
                 }
-            },
+            }
         }
     })
 }
@@ -70,7 +77,7 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
 // ------ ------
 
 fn rows_exist() -> impl Signal<Item = bool> {
-        rows().signal_vec_cloned().is_empty().map(Not::not)
+    rows().signal_vec_cloned().is_empty().map(Not::not)
 }
 
 // ------ ------
@@ -92,12 +99,10 @@ fn pull_block_data(id: Id) {
     });
 }
 
-fn choose_event(event_id: usize ) {
+fn choose_event(event_id: usize) {
     Task::start(async move {
         let result = connection()
-            .send_up_msg(UpMsg::ChooseEvent(EventChoiceMessage {
-                id: event_id
-            }))
+            .send_up_msg(UpMsg::ChooseEvent(EventChoiceMessage { id: event_id }))
             .await;
         if let Err(error) = result {
             eprintln!("Failed to choose event message: {:?}", error);
