@@ -28,23 +28,26 @@ async fn up_msg_handler(req: UpMsgRequest<UpMsg>) {
                 data: lipsum_words(5),
             };
             sessions::broadcast_down_msg(&DownMsg::EventSelected(stream), cor_id).await;
-            let range = rand::thread_rng().gen_range(7..50);
+
             static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
-            loop {
-                let speaker = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
-                    .choose(&mut rand::thread_rng())
-                    .unwrap()
-                    .to_string();
-                let block = BlockMessage {
-                    id: NEXT_ID.fetch_add(1, Ordering::SeqCst),
-                    text: lipsum_words(range),
-                    speaker,
-                };
 
-                sessions::broadcast_down_msg(&DownMsg::BlockCreated(block), cor_id).await;
+            tokio::spawn(async move {
+                loop {
+                    let range = rand::thread_rng().gen_range(7..50);
+                    let speaker = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
+                        .choose(&mut rand::thread_rng())
+                        .unwrap()
+                        .to_string();
+                    let block = BlockMessage {
+                        id: NEXT_ID.fetch_add(1, Ordering::SeqCst),
+                        text: lipsum_words(range),
+                        speaker,
+                    };
 
-                sleep(Duration::from_millis(3000)).await;
-            }
+                    sessions::broadcast_down_msg(&DownMsg::BlockCreated(block), cor_id).await;
+                    sleep(Duration::from_millis(3000)).await;
+                }
+            });
         }
     }
 }
