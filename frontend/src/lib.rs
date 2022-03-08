@@ -1,3 +1,5 @@
+use fake::faker::company::en::*;
+use fake::Fake;
 use shared::{BlockMessage, EventChoiceMessage};
 use shared::{DownMsg, UpMsg};
 use std::ops::Not;
@@ -56,11 +58,7 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
             DownMsg::BlockEdited(msg) => {
                 println!("Block edited: {}", msg.id);
                 let rows = rows().lock_ref();
-                let block_to_update = rows
-                    .into_iter()
-                    .filter(|row| row.id == msg.id)
-                    .next()
-                    .unwrap();
+                let block_to_update = rows.iter().find(|row| row.id == msg.id).unwrap();
                 block_to_update.text.lock_mut().replace_range(.., &msg.text);
             }
         }
@@ -81,12 +79,19 @@ fn rows_exist() -> impl Signal<Item = bool> {
 fn edit_block(id: Id) {
     Task::start(async move {
         let rows = rows().lock_ref();
-        let new_data = rows.into_iter().filter(|row| row.id == id).next().unwrap();
+        let new_data = rows.iter().find(|row| row.id == id).unwrap();
+        let updated_text: Vec<String> = vec![
+            Buzzword().fake(),
+            BuzzwordMiddle().fake(),
+            BuzzwordTail().fake(),
+            ": ".to_string(),
+            CatchPhase().fake(),
+        ];
         let result = connection()
             .send_up_msg(UpMsg::EditBlock(BlockMessage {
                 id,
                 speaker: new_data.speaker.to_string(),
-                text: "Foobar says the senator".to_string(), // new_data.speaker.clone(),
+                text: updated_text.join(" "),
             }))
             .await;
         if let Err(error) = result {
