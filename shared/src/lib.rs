@@ -7,6 +7,7 @@ use moonlight::*;
 pub enum UpMsg {
     ChooseEvent(EventChoiceMessage),
     EditBlock(BlockMessage),
+    DeleteBlock(BlockMessage),
 }
 
 // ------ DownMsg ------
@@ -17,6 +18,7 @@ pub enum DownMsg {
     EventSelected(EventStreamMessage),
     BlockCreated(BlockMessage),
     BlockEdited(BlockMessage),
+    BlockDeleted(BlockMessage),
 }
 
 // ------ Message ------

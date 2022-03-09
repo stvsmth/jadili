@@ -40,14 +40,13 @@ struct RenderBlock {
 #[static_ref]
 pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
     Connection::new(|down_msg, cor_id| {
-        println!("DownMsg received: {:?}", down_msg);
 
         match down_msg {
             DownMsg::EventSelected(msg) => {
                 println!("Chose event {:?}, cor_id: {}", msg.id, cor_id);
             }
             DownMsg::BlockCreated(msg) => {
-                println!("Block created {}", msg.id);
+                println!("Create block {}", msg.id);
                 let block = RenderBlock {
                     id: msg.id,
                     speaker: msg.speaker,
@@ -56,10 +55,23 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
                 rows().lock_mut().push_cloned(Arc::new(block));
             }
             DownMsg::BlockEdited(msg) => {
-                println!("Block edited: {}", msg.id);
+                println!("Edit block {}", msg.id);
                 let rows = rows().lock_ref();
                 let block_to_update = rows.iter().find(|row| row.id == msg.id).unwrap();
                 block_to_update.text.lock_mut().replace_range(.., &msg.text);
+            }
+            DownMsg::BlockDeleted(msg) => {
+                println!("Delete block {}", msg.id);
+                let pos = rows()
+                    .lock_ref()
+                    .iter()
+                    .position(|block| block.id == msg.id)
+                    .unwrap_or(0);
+            
+                if pos > 0 {
+                    println!("Found row {}, deleting", msg.id);
+                    rows().lock_mut().remove(pos);
+                }
             }
         }
     })
@@ -116,7 +128,19 @@ fn select_row(id: Id) {
 }
 
 fn remove_row(id: Id) {
-    rows().lock_mut().retain(|row| row.id != id);
+    // Be careful to only send new Delete task if we deleted something, otherwise: infinite loop
+    Task::start(async move {
+        let result = connection()
+            .send_up_msg(UpMsg::DeleteBlock(BlockMessage {
+                id,
+                speaker: "n/a".to_string(), // TODO: Create a BlockIdOnlyMessage (but w/ better name)
+                text: "n/a".to_string(),
+            }))
+            .await;
+        if let Err(error) = result {
+            eprintln!("Failed to send delete block message: {:?}", error);
+        }
+    });
 }
 
 // ------ ------
