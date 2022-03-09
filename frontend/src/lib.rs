@@ -19,12 +19,12 @@ use zoon::{
 // ------ ------
 
 #[static_ref]
-fn selected_row() -> &'static Mutable<Option<Id>> {
+fn selected_block() -> &'static Mutable<Option<Id>> {
     Mutable::new(None)
 }
 
 #[static_ref]
-fn rows() -> &'static MutableVec<Arc<RenderBlock>> {
+fn blocks() -> &'static MutableVec<Arc<RenderBlock>> {
     MutableVec::new()
 }
 
@@ -50,27 +50,27 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
                 speaker: msg.speaker,
                 text: Mutable::new(msg.text),
             };
-            rows().lock_mut().push_cloned(Arc::new(block));
+            blocks().lock_mut().push_cloned(Arc::new(block));
         }
         DownMsg::BlockEdited(msg) => {
             println!("Edit block {}", msg.id);
-            let rows = rows().lock_ref();
-            match rows.iter().find(|row| row.id == msg.id) {
+            let blocks = blocks().lock_ref();
+            match blocks.iter().find(|block| block.id == msg.id) {
                 Some(block) => block.text.lock_mut().replace_range(.., &msg.text),
                 None => eprintln!("No block {:?} found to update", msg.id),
             }
         }
         DownMsg::BlockDeleted(msg) => {
             println!("Delete block {}", msg.id);
-            let pos = rows()
+            let pos = blocks()
                 .lock_ref()
                 .iter()
                 .position(|block| block.id == msg.id)
                 .unwrap_or(0);
 
             if pos > 0 {
-                println!("Found row {}, deleting", msg.id);
-                rows().lock_mut().remove(pos);
+                println!("Found blocks {}, deleting", msg.id);
+                blocks().lock_mut().remove(pos);
             }
         }
     })
@@ -79,8 +79,8 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
 //    Signals
 // ------ ------
 
-fn rows_exist() -> impl Signal<Item = bool> {
-    rows().signal_vec_cloned().is_empty().map(Not::not)
+fn blocks_exist() -> impl Signal<Item = bool> {
+    blocks().signal_vec_cloned().is_empty().map(Not::not)
 }
 
 // ------ ------
@@ -89,8 +89,8 @@ fn rows_exist() -> impl Signal<Item = bool> {
 
 fn edit_block(id: Id) {
     Task::start(async move {
-        let rows = rows().lock_ref();
-        let new_data = rows.iter().find(|row| row.id == id).unwrap();
+        let blocks = blocks().lock_ref();
+        let new_data = blocks.iter().find(|block| block.id == id).unwrap();
         let updated_text: Vec<String> = vec![
             Buzzword().fake(),
             BuzzwordMiddle().fake(),
@@ -122,11 +122,11 @@ fn choose_event(event_id: usize) {
     });
 }
 
-fn select_row(id: Id) {
-    selected_row().set(Some(id))
+fn select_block(id: Id) {
+    selected_block().set(Some(id))
 }
 
-fn remove_row(id: Id) {
+fn remove_block(id: Id) {
     // Be careful to only send new Delete task if we deleted something, otherwise: infinite loop
     Task::start(async move {
         let result = connection()
@@ -161,7 +161,7 @@ fn root() -> RawHtmlEl {
 fn jumbotron() -> RawHtmlEl {
     RawHtmlEl::new("div").attr("class", "jumbotron").child(
         RawHtmlEl::new("div")
-            .attr("class", "row")
+            .attr("class", "block")
             .children(IntoIterator::into_iter([
                 RawHtmlEl::new("div")
                     .attr("class", "col-md-6")
@@ -175,7 +175,7 @@ fn jumbotron() -> RawHtmlEl {
 
 fn action_buttons() -> RawHtmlEl {
     RawHtmlEl::new("div")
-        .attr("class", "row")
+        .attr("class", "block")
         .children([action_button("select-event", "Select Event", || {
             choose_event(1)
         })])
@@ -197,55 +197,55 @@ fn action_button(id: &'static str, title: &'static str, on_click: fn()) -> RawHt
 fn table() -> RawHtmlEl {
     RawHtmlEl::new("table")
         .attr("class", "table test-data")
-        .child_signal(rows_exist().map(|rows_exist| {
-            rows_exist.then(|| {
+        .child_signal(blocks_exist().map(|blocks_exist| {
+            blocks_exist.then(|| {
                 RawHtmlEl::new("tbody")
                     .attr("id", "tbody")
-                    .children_signal_vec(rows().signal_vec_cloned().map(row))
+                    .children_signal_vec(blocks().signal_vec_cloned().map(block))
             })
         }))
 }
 
-fn row(block: Arc<RenderBlock>) -> RawHtmlEl {
+fn block(block: Arc<RenderBlock>) -> RawHtmlEl {
     let id = block.id;
     RawHtmlEl::new("tr")
         .attr_signal(
             "class",
-            selected_row()
+            selected_block()
                 .signal_ref(move |selected_id| ((*selected_id)? == id).then(|| "current")),
         )
         .attr("class", block.speaker.as_str())
         .children(IntoIterator::into_iter([
-            row_id(id),
-            row_speaker(id, block.speaker.clone()),
-            row_text(id, block.text.signal_cloned()),
-            row_edit_button(id),
-            row_remove_button(id),
+            block_id(id),
+            block_speaker(id, block.speaker.clone()),
+            block_text(id, block.text.signal_cloned()),
+            block_edit_button(id),
+            block_remove_button(id),
             RawHtmlEl::new("td").attr("class", "col-md-6"),
         ]))
 }
 
-fn row_id(id: Id) -> RawHtmlEl {
+fn block_id(id: Id) -> RawHtmlEl {
     RawHtmlEl::new("td").attr("class", "col-md-1").child(id)
 }
 
-fn row_speaker(id: Id, speaker: String) -> RawHtmlEl {
+fn block_speaker(id: Id, speaker: String) -> RawHtmlEl {
     RawHtmlEl::new("td").attr("class", "col-md-1").child(
         RawHtmlEl::new("a")
-            .event_handler(move |_: events::Click| select_row(id))
+            .event_handler(move |_: events::Click| select_block(id))
             .child(Text::new(speaker)),
     )
 }
 
-fn row_text(_id: Id, text: impl Signal<Item = String> + Unpin + 'static) -> RawHtmlEl {
+fn block_text(_id: Id, text: impl Signal<Item = String> + Unpin + 'static) -> RawHtmlEl {
     RawHtmlEl::new("td").attr("class", "col-md-6").child(
         RawHtmlEl::new("div")
-            // .event_handler(move |_: events::Click| select_row(id))
+            // .event_handler(move |_: events::Click| select_block(id))
             .child(Text::with_signal(text)),
     )
 }
 
-fn row_edit_button(id: Id) -> RawHtmlEl {
+fn block_edit_button(id: Id) -> RawHtmlEl {
     RawHtmlEl::new("td").attr("class", "col-md-1").child(
         RawHtmlEl::new("a")
             .event_handler(move |_: events::Click| edit_block(id))
@@ -257,10 +257,10 @@ fn row_edit_button(id: Id) -> RawHtmlEl {
     )
 }
 
-fn row_remove_button(id: Id) -> RawHtmlEl {
+fn block_remove_button(id: Id) -> RawHtmlEl {
     RawHtmlEl::new("td").attr("class", "col-md-1").child(
         RawHtmlEl::new("a")
-            .event_handler(move |_: events::Click| remove_row(id))
+            .event_handler(move |_: events::Click| remove_block(id))
             .child(
                 RawHtmlEl::new("span")
                     .attr("class", "glyphicon glyphicon-remove remove")
