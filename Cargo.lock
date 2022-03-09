@@ -309,7 +309,7 @@ checksum = "cdb031dd78e28731d87d56cc8ffef4a8f36ca26c38fe2de700543e627f8a464a"
 name = "backend"
 version = "0.1.0"
 dependencies = [
- "lipsum",
+ "fake",
  "moon",
  "rand 0.8.4",
  "shared",
@@ -605,7 +605,6 @@ version = "0.1.0"
 dependencies = [
  "fake",
  "getrandom",
- "lipsum",
  "rand 0.8.4",
  "shared",
  "zoon",
@@ -950,16 +949,6 @@ name = "libc"
 version = "0.2.112"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1b03d17f364a3a042d5e5d46b053bbbf82c92c9430c592dd4c064dc6ee997125"
-
-[[package]]
-name = "lipsum"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42ee7271c76a89032dcc7e595c0a739a9c5514eab483deb0e82981fe2098c56a"
-dependencies = [
- "rand 0.8.4",
- "rand_chacha 0.3.1",
-]
 
 [[package]]
 name = "local-channel"

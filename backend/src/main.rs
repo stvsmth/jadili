@@ -1,10 +1,10 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
-
-use lipsum::lipsum_words;
+use fake::faker::lorem::en::*;
+use fake::Fake;
 use moon::tokio::time::{sleep, Duration};
 use moon::*;
 use rand::prelude::*;
 use shared::{BlockMessage, DownMsg, EventStreamMessage, UpMsg};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 async fn frontend() -> Frontend {
     Frontend::new()
@@ -26,9 +26,10 @@ async fn up_msg_handler(req: UpMsgRequest<UpMsg>) {
             sessions::broadcast_down_msg(&DownMsg::BlockEdited(block), cor_id).await;
         }
         UpMsg::ChooseEvent(event) => {
+            let lorem: Vec<String> = Words(3..5).fake();
             let stream = EventStreamMessage {
                 id: event.id,
-                data: lipsum_words(5),
+                data: lorem.join(" "),
             };
             sessions::broadcast_down_msg(&DownMsg::EventSelected(stream), cor_id).await;
 
@@ -37,7 +38,7 @@ async fn up_msg_handler(req: UpMsgRequest<UpMsg>) {
             tokio::spawn(async move {
                 loop {
                     // let next_id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
-                    let range = rand::thread_rng().gen_range(7..50);
+                    let lorem: Vec<String> = Sentences(2..14).fake();
                     let speaker = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
                         .choose(&mut rand::thread_rng())
                         .unwrap()
@@ -45,7 +46,7 @@ async fn up_msg_handler(req: UpMsgRequest<UpMsg>) {
                     let block = BlockMessage {
                         id: NEXT_ID.fetch_add(1, Ordering::SeqCst),
                         // id: next_id,
-                        text: lipsum_words(range),
+                        text: lorem.join(" "),
                         speaker,
                     };
 
