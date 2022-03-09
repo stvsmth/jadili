@@ -39,39 +39,38 @@ struct RenderBlock {
 
 #[static_ref]
 pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
-    Connection::new(|down_msg, cor_id| {
+    Connection::new(|down_msg, cor_id| match down_msg {
+        DownMsg::EventSelected(msg) => {
+            println!("Chose event {:?}, cor_id: {}", msg.id, cor_id);
+        }
+        DownMsg::BlockCreated(msg) => {
+            println!("Create block {}", msg.id);
+            let block = RenderBlock {
+                id: msg.id,
+                speaker: msg.speaker,
+                text: Mutable::new(msg.text),
+            };
+            rows().lock_mut().push_cloned(Arc::new(block));
+        }
+        DownMsg::BlockEdited(msg) => {
+            println!("Edit block {}", msg.id);
+            let rows = rows().lock_ref();
+            match rows.iter().find(|row| row.id == msg.id) {
+                Some(block) => block.text.lock_mut().replace_range(.., &msg.text),
+                None => eprintln!("No block {:?} found to update", msg.id),
+            }
+        }
+        DownMsg::BlockDeleted(msg) => {
+            println!("Delete block {}", msg.id);
+            let pos = rows()
+                .lock_ref()
+                .iter()
+                .position(|block| block.id == msg.id)
+                .unwrap_or(0);
 
-        match down_msg {
-            DownMsg::EventSelected(msg) => {
-                println!("Chose event {:?}, cor_id: {}", msg.id, cor_id);
-            }
-            DownMsg::BlockCreated(msg) => {
-                println!("Create block {}", msg.id);
-                let block = RenderBlock {
-                    id: msg.id,
-                    speaker: msg.speaker,
-                    text: Mutable::new(msg.text),
-                };
-                rows().lock_mut().push_cloned(Arc::new(block));
-            }
-            DownMsg::BlockEdited(msg) => {
-                println!("Edit block {}", msg.id);
-                let rows = rows().lock_ref();
-                let block_to_update = rows.iter().find(|row| row.id == msg.id).unwrap();
-                block_to_update.text.lock_mut().replace_range(.., &msg.text);
-            }
-            DownMsg::BlockDeleted(msg) => {
-                println!("Delete block {}", msg.id);
-                let pos = rows()
-                    .lock_ref()
-                    .iter()
-                    .position(|block| block.id == msg.id)
-                    .unwrap_or(0);
-            
-                if pos > 0 {
-                    println!("Found row {}, deleting", msg.id);
-                    rows().lock_mut().remove(pos);
-                }
+            if pos > 0 {
+                println!("Found row {}, deleting", msg.id);
+                rows().lock_mut().remove(pos);
             }
         }
     })
