@@ -36,15 +36,15 @@ async fn up_msg_handler(req: UpMsgRequest<UpMsg>) {
 
             tokio::spawn(async move {
                 loop {
-                    let next_id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
+                    // let next_id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
                     let range = rand::thread_rng().gen_range(7..50);
                     let speaker = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
                         .choose(&mut rand::thread_rng())
                         .unwrap()
                         .to_string();
                     let block = BlockMessage {
-                        // id: NEXT_ID.fetch_add(1, Ordering::SeqCst),
-                        id: next_id,
+                        id: NEXT_ID.fetch_add(1, Ordering::SeqCst),
+                        // id: next_id,
                         text: lipsum_words(range),
                         speaker,
                     };
@@ -52,9 +52,9 @@ async fn up_msg_handler(req: UpMsgRequest<UpMsg>) {
                     sessions::broadcast_down_msg(&DownMsg::BlockCreated(block), cor_id).await;
                     sleep(Duration::from_millis(2000)).await;
 
-                    if next_id > 15 {
-                        break;
-                    }
+                    // if next_id > 15 {
+                    //     break;
+                    // }
                 }
             });
         }
