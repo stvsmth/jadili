@@ -106,7 +106,7 @@ fn edit_block(id: Id) {
             }))
             .await;
         if let Err(error) = result {
-            eprintln!("Failed to send poll data message: {:?}", error);
+            println!("Failed to send poll data message: {:?}", error);
         }
     });
 }
