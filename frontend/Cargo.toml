@@ -20,4 +20,5 @@ getrandom = { version = "0.2", features = ["js"], default-features = false }
 fake = "2.4"
 
 [package.metadata.wasm-pack.profile.release]
+debug = true
 wasm-opt = ['-Oz']

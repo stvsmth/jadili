@@ -9,6 +9,7 @@ members = [
 [profile.release]
 lto = true
 codegen-units = 1
+debug = true
 
 [profile.release.package.frontend]
 opt-level = 'z'
