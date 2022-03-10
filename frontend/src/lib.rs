@@ -57,7 +57,7 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
             let blocks = blocks().lock_ref();
             match blocks.iter().find(|block| block.id == msg.id) {
                 Some(block) => block.text.lock_mut().replace_range(.., &msg.text),
-                None => eprintln!("No block {:?} found to update", msg.id),
+                None => println!("No block {:?} found to update", msg.id),
             }
         }
         DownMsg::BlockDeleted(msg) => {
@@ -68,7 +68,7 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
                 .position(|block| block.id == msg.id);
             match pos {
                 Some(index) => {
-                    println!("Found blocks {}, deleting", msg.id);
+                    println!("Found block {}, deleting", msg.id);
                     blocks().lock_mut().remove(index);
                 }
                 None => print!("No block found for {}", msg.id),
