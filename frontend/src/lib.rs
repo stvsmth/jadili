@@ -161,7 +161,7 @@ fn root() -> RawHtmlEl {
 fn jumbotron() -> RawHtmlEl {
     RawHtmlEl::new("div").attr("class", "jumbotron").child(
         RawHtmlEl::new("div")
-            .attr("class", "block")
+            .attr("class", "row")
             .children(IntoIterator::into_iter([
                 RawHtmlEl::new("div")
                     .attr("class", "col-md-6")
@@ -175,7 +175,7 @@ fn jumbotron() -> RawHtmlEl {
 
 fn action_buttons() -> RawHtmlEl {
     RawHtmlEl::new("div")
-        .attr("class", "block")
+        .attr("class", "row")
         .children([action_button("select-event", "Select Event", || {
             choose_event(1)
         })])
