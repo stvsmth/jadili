@@ -61,16 +61,17 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
             }
         }
         DownMsg::BlockDeleted(msg) => {
-            println!("Delete block {}", msg.id);
+            println!("... looking for block {} to delete", msg.id);
             let pos = blocks()
                 .lock_ref()
                 .iter()
-                .position(|block| block.id == msg.id)
-                .unwrap_or(0);
-
-            if pos > 0 {
-                println!("Found blocks {}, deleting", msg.id);
-                blocks().lock_mut().remove(pos);
+                .position(|block| block.id == msg.id);
+            match pos {
+                Some(index) => {
+                    println!("Found blocks {}, deleting", msg.id);
+                    blocks().lock_mut().remove(index);
+                }
+                None => print!("No block found for {}", msg.id),
             }
         }
     })
@@ -127,7 +128,6 @@ fn select_block(id: Id) {
 }
 
 fn remove_block(id: Id) {
-    // Be careful to only send new Delete task if we deleted something, otherwise: infinite loop
     Task::start(async move {
         let result = connection()
             .send_up_msg(UpMsg::DeleteBlock(BlockMessage {
