@@ -91,23 +91,27 @@ fn blocks_exist() -> impl Signal<Item = bool> {
 fn edit_block(id: Id) {
     Task::start(async move {
         let blocks = blocks().lock_ref();
-        let new_data = blocks.iter().find(|block| block.id == id).unwrap();
-        let updated_text: Vec<String> = vec![
-            Buzzword().fake(),
-            BuzzwordMiddle().fake(),
-            BuzzwordTail().fake(),
-            ": ".to_string(),
-            CatchPhase().fake(),
-        ];
-        let result = connection()
-            .send_up_msg(UpMsg::EditBlock(BlockMessage {
-                id,
-                speaker: new_data.speaker.to_string(),
-                text: updated_text.join(" "),
-            }))
-            .await;
-        if let Err(error) = result {
-            println!("Failed to send poll data message: {:?}", error);
+        match blocks.iter().find(|block| block.id == id) {
+            None => println!("... no block #{} to edit", id),
+            Some(block) => {
+                let new_text: Vec<String> = vec![
+                    Buzzword().fake(),
+                    BuzzwordMiddle().fake(),
+                    BuzzwordTail().fake(),
+                    ": ".to_string(),
+                    CatchPhase().fake(),
+                ];
+                let result = connection()
+                    .send_up_msg(UpMsg::EditBlock(BlockMessage {
+                        id,
+                        speaker: block.speaker.to_string(),
+                        text: new_text.join(" "),
+                    }))
+                    .await;
+                if let Err(error) = result {
+                    println!("Failed to send edit message: {:?}", error);
+                }
+            }
         }
     });
 }
@@ -118,7 +122,7 @@ fn choose_event(event_id: usize) {
             .send_up_msg(UpMsg::ChooseEvent(EventChoiceMessage { id: event_id }))
             .await;
         if let Err(error) = result {
-            eprintln!("Failed to choose event message: {:?}", error);
+            eprintln!("Failed to send choose event message: {:?}", error);
         }
     });
 }
