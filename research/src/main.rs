@@ -61,7 +61,7 @@ async fn main() -> Result<()> {
         .json(&params)
         .send()
         .await?
-        .json::<Transcript>() 
+        .json::<Transcript>()
         .await?;
     println!("Transcript requested");
 
@@ -106,7 +106,7 @@ type Speaker = Option<String>; // A, B, C ... will revisit; maybe char? or char[
 
 // Discussion of validators for Rust json/structs
 // https://blog.logrocket.com/json-input-validation-in-rust-web-services/
-// 
+//
 // Serde has the ability to add default values, maybe this is handy? Maybe we want null?
 // https://serde.rs/attr-default.html
 // For example, probably better to have `null` words rather than an empty Vec we need to get
