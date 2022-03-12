@@ -1,94 +1,39 @@
-use fake::faker::lorem::en::*;
-use fake::Fake;
-use moon::tokio::time::{sleep, Duration};
-use moon::*;
 use serde::{Deserialize, Serialize};
-use shared::{BlockMessage, DownMsg, EventStreamMessage, UpMsg};
+
 use std::error::Error;
-use std::fs::File;
+use std::fs::{self, File};
 use std::io::BufReader;
 use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering};
 
-fn read_user_from_file<P: AsRef<Path>>(path: P) -> Result<Utterance, Box<dyn Error>> {
+fn read_user_from_file<P: AsRef<Path>>(path: P) -> Result<Transcript, Box<dyn Error>> {
+    // Open the file in read-only mode with buffer.
     let file = File::open(path)?;
     let reader = BufReader::new(file);
     let tx = serde_json::from_reader(reader)?;
     Ok(tx)
 }
 
-fn get_sample_json(id: usize) -> Option<BlockMessage> {
-    let path = format!("./sample_{:03}.json", id);
-    match read_user_from_file(path) {
-        Ok(block) => {
-            let speaker = block.speaker.clone().unwrap_or_else(|| "".to_string());
-            Some(BlockMessage {
-                id,
-                text: block.text,
-                speaker,
-            })
-        }
-        Err(_) => {
-            // TODO: Only squash this if it is file not found (2)
-            // println!("Err kind: {:?}", err);
-            None
+fn main() {
+    let paths = fs::read_dir("./").unwrap();
+
+    for path in paths {
+        let curr_path = path.unwrap().path();
+        let file_stem = curr_path.file_stem().unwrap().to_string_lossy();
+        if file_stem.starts_with("sample_") {
+            let tx = read_user_from_file(curr_path).unwrap();
+            let speaker = tx.utterances[0]
+                .speaker
+                .clone()
+                .unwrap_or_else(|| "n/a".to_string());
+            println!("Speaker {} spoketh: {:#?}", speaker, tx.utterances[0].text);
         }
     }
-}
-
-async fn frontend() -> Frontend {
-    Frontend::new()
-        .title("Jadili")
-        .default_styles(false)
-        .append_to_head(r#"<link href="/_api/public/css/currentStyle.css" rel="stylesheet"/>"#)
-        .body_content(r#"<div id="main"></div>"#)
-}
-
-async fn up_msg_handler(req: UpMsgRequest<UpMsg>) {
-    println!("request: {:?}", req);
-    let UpMsgRequest { up_msg, cor_id, .. } = req;
-
-    match up_msg {
-        UpMsg::DeleteBlock(block) => {
-            sessions::broadcast_down_msg(&DownMsg::BlockDeleted(block), cor_id).await;
-        }
-        UpMsg::EditBlock(block) => {
-            sessions::broadcast_down_msg(&DownMsg::BlockEdited(block), cor_id).await;
-        }
-        UpMsg::ChooseEvent(event) => {
-            let lorem: Vec<String> = Words(3..5).fake();
-            let stream = EventStreamMessage {
-                id: event.id,
-                data: lorem.join(" "),
-            };
-            sessions::broadcast_down_msg(&DownMsg::EventSelected(stream), cor_id).await;
-
-            static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
-            tokio::spawn(async move {
-                loop {
-                    // We may not have the next file on disk, no worries, sleep and come back later
-                    let id = NEXT_ID.load(Ordering::SeqCst);
-                    if let Some(block) = get_sample_json(NEXT_ID.load(Ordering::SeqCst)) {
-                        sessions::broadcast_down_msg(&DownMsg::BlockCreated(block), cor_id).await;
-                        NEXT_ID.store(id + 1, Ordering::SeqCst);
-                    }
-                    sleep(Duration::from_millis(500)).await; // TODO: tighten this up once it's working
-                }
-            });
-        }
-    }
-}
-
-#[moon::main]
-async fn main() -> std::io::Result<()> {
-    start(frontend, up_msg_handler, |_| {}).await
 }
 
 // ////////////////////////////////////////////////////////////////////////////////////////////
 // Types AAI data structures (used in deserialize calls)
 
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(crate = "serde")]
 struct UploadResp {
     upload_url: String, // url of file we uploaded (only accessible from AAI servers)
 }
@@ -106,7 +51,6 @@ type Speaker = Option<String>; // A, B, C ... will revisit; maybe char? or char[
 // Also think about escape sequences (\n)
 // https://d3lm.medium.com/rust-beware-of-escape-sequences-85ec90e9e243
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(crate = "serde")]
 struct Word {
     confidence: f32,
     end: usize,
@@ -118,18 +62,16 @@ struct Word {
 #[derive(Serialize, Deserialize, Debug)]
 // TODO: Utterances appear to be grouped by speaker, while words
 // seems to be a stream of ungrouped speakers
-#[serde(crate = "serde")]
 struct Utterance {
     confidence: f32,
-    audio_end: usize, // realtime wants audio_start, upload just start
+    end: usize,
     speaker: Speaker,
-    audio_start: usize,
+    start: usize,
     text: String,
     words: Vec<Word>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(crate = "serde")]
 struct Sentiment {
     text: String,
     start: usize,
@@ -154,7 +96,6 @@ struct Sentiment {
 // }
 
 #[derive(Serialize, Deserialize, Debug)]
-#[serde(crate = "serde")]
 struct Transcript {
     // https://docs.assemblyai.com/core-transcription
     acoustic_model: String,

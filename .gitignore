@@ -14,3 +14,4 @@ recordings-transcripts/
 
 .DS_Store
 *.wav
+*.json
