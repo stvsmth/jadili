@@ -183,8 +183,6 @@ fn merge_above(id: Id) {
             None => println!("Merge block #{} not found", id),
             Some(block) => {
                 let text = block.text.lock_ref().clone();
-                println!("Text to clone: {:?}", text);
-                println!("About to clone");
                 let result = connection()
                     .send_up_msg(UpMsg::MergeBlockAbove(BlockMessage {
                         id,
