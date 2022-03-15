@@ -303,36 +303,45 @@ fn block_text(_id: Id, text: impl Signal<Item = String> + Unpin + 'static) -> Ra
 }
 
 fn block_edit_button(id: Id) -> RawHtmlEl {
-    RawHtmlEl::new("td").attr("class", "col-md-1").child(
+    RawHtmlEl::new("td").attr("class", "col-1").child(
         RawHtmlEl::new("a")
             .event_handler(move |_: events::Click| edit_block(id))
             .child(
                 RawHtmlEl::new("span")
                     .attr("class", "glyphicon glyphicon-edit edit")
-                    .attr("aria-hidden", "true"),
+                    .attr("aria-hidden", "true")
+                    .attr("data-toggle", "tooltip")
+                    .attr("data-placement", "bottom")
+                    .attr("title", "Edit block contents"),
             ),
     )
 }
 fn block_merge_above(id: Id) -> RawHtmlEl {
-    RawHtmlEl::new("td").attr("class", "col-md-1").child(
+    RawHtmlEl::new("td").attr("class", "col-1").child(
         RawHtmlEl::new("a")
             .event_handler(move |_: events::Click| merge_above(id))
             .child(
                 RawHtmlEl::new("span")
                     .attr("class", "glyphicon glyphicon-upload upload")
-                    .attr("aria-hidden", "true"),
+                    .attr("aria-hidden", "true")
+                    .attr("data-toggle", "tooltip")
+                    .attr("data-placement", "bottom")
+                    .attr("title", "Merge with block above"),
             ),
     )
 }
 
 fn block_remove_button(id: Id) -> RawHtmlEl {
-    RawHtmlEl::new("td").attr("class", "col-md-1").child(
+    RawHtmlEl::new("td").attr("class", "col-1").child(
         RawHtmlEl::new("a")
             .event_handler(move |_: events::Click| remove_block(id))
             .child(
                 RawHtmlEl::new("span")
                     .attr("class", "glyphicon glyphicon-remove remove")
-                    .attr("aria-hidden", "true"),
+                    .attr("aria-hidden", "true")
+                    .attr("data-toggle", "tooltip")
+                    .attr("data-placement", "bottom")
+                    .attr("title", "Remove this block"),
             ),
     )
 }
