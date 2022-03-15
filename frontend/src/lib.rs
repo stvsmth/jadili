@@ -60,6 +60,33 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
                 None => println!("No block {:?} found to update", msg.id),
             }
         }
+        DownMsg::BlockMergedWithAbove(msg) => {
+            println!("Merge block {} with the block above", msg.id);
+            // Find our position in the blocks (if we exist)
+            let pos = blocks()
+                .lock_ref()
+                .iter()
+                .position(|block| block.id == msg.id);
+
+            // Given the position of the block we want to merge above, extract its text, append above, the delete
+            match pos {
+                Some(0) => println!("Cannot merge first element, there's nothing above us"),
+                Some(idx) => {
+                    let blocks = blocks().lock_ref();
+                    match blocks.iter().find(|block| block.id == msg.id) {
+                        None => println!(" ... no block #{} found to merge above", msg.id),
+                        Some(_) => {
+                            let prev_idx = idx - 1;
+                            blocks[prev_idx].text.lock_mut().push(' ');
+                            blocks[prev_idx].text.lock_mut().push_str(&msg.text);
+                            remove_block(msg.id);
+                        }
+                    }
+                }
+                None => println!("No current block {} found, cannot merge above", msg.id),
+            };
+        }
+
         DownMsg::BlockDeleted(msg) => {
             println!("... looking for block {} to delete", msg.id);
             let pos = blocks()
@@ -146,6 +173,33 @@ fn remove_block(id: Id) {
     });
 }
 
+fn merge_above(id: Id) {
+    println!("Merge above {}", id);
+    Task::start(async move {
+        let blocks = blocks().lock_ref();
+        let found = blocks.iter().find(|b| b.id == id);
+
+        match found {
+            None => println!("Merge block #{} not found", id),
+            Some(block) => {
+                let text = block.text.lock_ref().clone();
+                println!("Text to clone: {:?}", text);
+                println!("About to clone");
+                let result = connection()
+                    .send_up_msg(UpMsg::MergeBlockAbove(BlockMessage {
+                        id,
+                        speaker: block.speaker.to_string(),
+                        text,
+                    }))
+                    .await;
+                if let Err(error) = result {
+                    eprintln!("Failed to send merge above block message: {:?}", error);
+                }
+            }
+        }
+    });
+}
+
 // ------ ------
 //     View
 // ------ ------
@@ -224,6 +278,7 @@ fn block(block: Arc<RenderBlock>) -> RawHtmlEl {
             block_speaker(id, block.speaker.clone()),
             block_text(id, block.text.signal_cloned()),
             block_edit_button(id),
+            block_merge_above(id),
             block_remove_button(id),
             RawHtmlEl::new("td").attr("class", "col-md-6"),
         ]))
@@ -256,6 +311,17 @@ fn block_edit_button(id: Id) -> RawHtmlEl {
             .child(
                 RawHtmlEl::new("span")
                     .attr("class", "glyphicon glyphicon-edit edit")
+                    .attr("aria-hidden", "true"),
+            ),
+    )
+}
+fn block_merge_above(id: Id) -> RawHtmlEl {
+    RawHtmlEl::new("td").attr("class", "col-md-1").child(
+        RawHtmlEl::new("a")
+            .event_handler(move |_: events::Click| merge_above(id))
+            .child(
+                RawHtmlEl::new("span")
+                    .attr("class", "glyphicon glyphicon-upload upload")
                     .attr("aria-hidden", "true"),
             ),
     )

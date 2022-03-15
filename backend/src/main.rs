@@ -55,6 +55,9 @@ async fn up_msg_handler(req: UpMsgRequest<UpMsg>) {
         UpMsg::EditBlock(block) => {
             sessions::broadcast_down_msg(&DownMsg::BlockEdited(block), cor_id).await;
         }
+        UpMsg::MergeBlockAbove(block) => {
+            sessions::broadcast_down_msg(&DownMsg::BlockMergedWithAbove(block), cor_id).await;
+        }
         UpMsg::ChooseEvent(event) => {
             let lorem: Vec<String> = Words(3..5).fake();
             let stream = EventStreamMessage {

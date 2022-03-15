@@ -8,6 +8,7 @@ pub enum UpMsg {
     ChooseEvent(EventChoiceMessage),
     EditBlock(BlockMessage),
     DeleteBlock(BlockMessage),
+    MergeBlockAbove(BlockMessage),
 }
 
 // ------ DownMsg ------
@@ -19,6 +20,7 @@ pub enum DownMsg {
     BlockCreated(BlockMessage),
     BlockEdited(BlockMessage),
     BlockDeleted(BlockMessage),
+    BlockMergedWithAbove(BlockMessage),
 }
 
 // ------ Message ------
