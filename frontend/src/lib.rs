@@ -155,6 +155,7 @@ fn choose_event(event_id: usize) {
 }
 
 fn select_block(id: Id) {
+    // TODO: This assigns the `current` class to the selected block, but we're not styling on that class yet
     selected_block().set(Some(id))
 }
 
@@ -294,10 +295,10 @@ fn block_speaker(id: Id, speaker: String) -> RawHtmlEl {
     )
 }
 
-fn block_text(_id: Id, text: impl Signal<Item = String> + Unpin + 'static) -> RawHtmlEl {
+fn block_text(id: Id, text: impl Signal<Item = String> + Unpin + 'static) -> RawHtmlEl {
     RawHtmlEl::new("td").attr("class", "col-md-6").child(
         RawHtmlEl::new("div")
-            // .event_handler(move |_: events::Click| select_block(id))
+            .event_handler(move |_: events::Click| select_block(id))
             .child(Text::with_signal(text)),
     )
 }
@@ -307,6 +308,7 @@ fn block_edit_button(id: Id) -> RawHtmlEl {
         RawHtmlEl::new("a")
             .event_handler(move |_: events::Click| edit_block(id))
             .child(
+                // TODO: Investigate creating a custom SpanWithTooltip element, there's a lot of boiler plate below
                 RawHtmlEl::new("span")
                     .attr("class", "glyphicon glyphicon-edit edit")
                     .attr("aria-hidden", "true")
