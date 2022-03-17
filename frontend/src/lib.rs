@@ -291,13 +291,13 @@ fn block_speaker(id: Id, speaker: String) -> RawHtmlEl {
     RawHtmlEl::new("td").attr("class", "col-md-1").child(
         RawHtmlEl::new("a")
             .event_handler(move |_: events::Click| select_block(id))
-            .child(Text::new(speaker)),
+            .child(speaker),
     )
 }
 
 fn block_text(id: Id, text: impl Signal<Item = String> + Unpin + 'static) -> RawHtmlEl {
     RawHtmlEl::new("td").attr("class", "col-md-6").child(
-        RawHtmlEl::new("div")
+        RawHtmlEl::new("p")
             .event_handler(move |_: events::Click| select_block(id))
             .child(Text::with_signal(text)),
     )
