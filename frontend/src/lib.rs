@@ -1,12 +1,12 @@
 use fake::faker::company::en::*;
 use fake::Fake;
+use rand::Rng;
 use shared::{BlockMessage, EventChoiceMessage};
 use shared::{DownMsg, UpMsg};
 use std::ops::Not;
 use std::sync::Arc;
 use zoon::{
-    eprintln, println, static_ref, Connection, Mutable, MutableVec, RawHtmlEl, Signal, Task, Text,
-    *,
+    eprintln, println, static_ref, Connection, Mutable, MutableVec, RawHtmlEl, Signal, Task, *,
 };
 
 // ------ ------
@@ -275,7 +275,7 @@ fn block(block: Arc<RenderBlock>) -> RawHtmlEl {
         .children(IntoIterator::into_iter([
             block_id(id),
             block_speaker(id, block.speaker.clone()),
-            block_text(id, block.text.signal_cloned()),
+            block_text(id, block.text.clone()),
             block_edit_button(id),
             block_merge_above(id),
             block_remove_button(id),
@@ -295,11 +295,22 @@ fn block_speaker(id: Id, speaker: String) -> RawHtmlEl {
     )
 }
 
-fn block_text(id: Id, text: impl Signal<Item = String> + Unpin + 'static) -> RawHtmlEl {
+fn block_text(id: Id, text: Mutable<String>) -> RawHtmlEl {
+    let source_text = text.lock_ref();
+    let words: Vec<&str> = source_text.split(" ").collect();
     RawHtmlEl::new("td").attr("class", "col-md-6").child(
         RawHtmlEl::new("p")
             .event_handler(move |_: events::Click| select_block(id))
-            .child(Text::with_signal(text)),
+            .children(IntoIterator::into_iter(words.into_iter().map(|word| {
+                let conf: f32 = rand::thread_rng().gen_range(0.67..1.0);
+                let conf_class = if conf < 0.69 { "conf-low" } else { "" };
+                RawHtmlEl::new("span")
+                    .attr("class", conf_class)
+                    .child(format!("{} ", word))
+                    .attr("data-toggle", "tooltip")
+                    .attr("data-placement", "bottom")
+                    .attr("title", format!("{:02.2}%", conf * 100.0).as_str())
+            }))),
     )
 }
 

@@ -23,6 +23,10 @@ body {
     left: -20px;
 }
 
+.conf-low {
+    color: red;
+}
+
 .col-sm-6.smallpad {
     padding: 5px;
 }
