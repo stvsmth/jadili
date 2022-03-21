@@ -69,6 +69,7 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
                 .position(|block| block.id == msg.id);
 
             // Given the position of the block we want to merge above, extract its text, append above, the delete
+            // ... only merge blocks if the speakers are the same
             match pos {
                 Some(0) => println!("Cannot merge first element, there's nothing above us"),
                 Some(idx) => {
@@ -77,9 +78,13 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
                         None => println!(" ... no block #{} found to merge above", msg.id),
                         Some(_) => {
                             let prev_idx = idx - 1;
-                            blocks[prev_idx].text.lock_mut().push(' ');
-                            blocks[prev_idx].text.lock_mut().push_str(&msg.text);
-                            remove_block(msg.id);
+                            if blocks[prev_idx].speaker != blocks[idx].speaker {
+                                eprintln!("Cannot merge different speakers");
+                            } else {
+                                blocks[prev_idx].text.lock_mut().push(' ');
+                                blocks[prev_idx].text.lock_mut().push_str(&msg.text);
+                                remove_block(msg.id);
+                            }
                         }
                     }
                 }
@@ -297,20 +302,21 @@ fn block_speaker(id: Id, speaker: String) -> RawHtmlEl {
 
 fn block_text(id: Id, text: Mutable<String>) -> RawHtmlEl {
     let source_text = text.lock_ref();
-    let words: Vec<&str> = source_text.split(" ").collect();
     RawHtmlEl::new("td").attr("class", "col-md-6").child(
         RawHtmlEl::new("p")
             .event_handler(move |_: events::Click| select_block(id))
-            .children(IntoIterator::into_iter(words.into_iter().map(|word| {
-                let conf: f32 = rand::thread_rng().gen_range(0.67..1.0);
-                let conf_class = if conf < 0.69 { "conf-low" } else { "" };
-                RawHtmlEl::new("span")
-                    .attr("class", conf_class)
-                    .child(format!("{} ", word))
-                    .attr("data-toggle", "tooltip")
-                    .attr("data-placement", "bottom")
-                    .attr("title", format!("{:02.2}%", conf * 100.0).as_str())
-            }))),
+            .children(IntoIterator::into_iter(source_text.split(' ').map(
+                |word| {
+                    let conf: f32 = rand::thread_rng().gen_range(0.67..1.0);
+                    let conf_class = if conf < 0.69 { "conf-low" } else { "" };
+                    RawHtmlEl::new("span")
+                        .attr("class", conf_class)
+                        .child(format!("{} ", word))
+                        .attr("data-toggle", "tooltip")
+                        .attr("data-placement", "bottom")
+                        .attr("title", format!("{:02.2}%", conf * 100.0).as_str())
+                },
+            ))),
     )
 }
 
