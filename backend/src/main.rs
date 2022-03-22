@@ -17,7 +17,7 @@ fn read_user_from_file<P: AsRef<Path>>(path: P) -> Result<Utterance, Box<dyn Err
 }
 
 fn get_sample_json(id: usize) -> Option<BlockMessage> {
-    let path = format!("./sample_{:03}.json", id);
+    let path = format!("./sample_{:04}.json", id);
     match read_user_from_file(path) {
         Ok(block) => {
             let speaker = block.speaker.clone().unwrap_or_else(|| "".to_string());
