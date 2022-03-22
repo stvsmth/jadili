@@ -23,7 +23,7 @@ async fn main() -> Result<()> {
         .expect("Problem reading sound data");
 
     // ... grab our API key from the configuration file (not in VCS)
-    let auth_key = fs::read_to_string("auth_keys.txt").expect("Problem reading auth key");
+    let auth_key = fs::read_to_string("auth_aai.txt").expect("Problem reading auth key");
 
     // ////////////////////////////////////////////////////////////////////////////////////////////
     // Build a client with persistent headers
