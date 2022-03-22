@@ -1,7 +1,6 @@
 use fake::faker::company::en::*;
 use fake::Fake;
-use rand::Rng;
-use shared::{BlockMessage, EventChoiceMessage};
+use shared::{BlockMessage, EventChoiceMessage, Word};
 use shared::{DownMsg, UpMsg};
 use std::ops::Not;
 use std::sync::Arc;
@@ -10,8 +9,7 @@ use zoon::{
 };
 
 // ------ ------
-// TODO
-// Read Mutable / future
+// Reference reading around Mutable and signals
 // https://docs.rs/futures-signals/0.3.22/futures_signals/tutorial/index.html
 
 // ------ ------
@@ -23,6 +21,7 @@ fn selected_block() -> &'static Mutable<Option<Id>> {
     Mutable::new(None)
 }
 
+// TODO: Research exactly why we're using Arc
 #[static_ref]
 fn blocks() -> &'static MutableVec<Arc<RenderBlock>> {
     MutableVec::new()
@@ -30,11 +29,13 @@ fn blocks() -> &'static MutableVec<Arc<RenderBlock>> {
 
 type Id = usize;
 
+#[allow(dead_code)] // TODO: use corrected_text
 #[derive(Debug)]
 struct RenderBlock {
     id: usize,
     speaker: String,
-    text: Mutable<String>,
+    raw_words: MutableVec<Word>,
+    corrected_text: Mutable<String>,
 }
 
 #[static_ref]
@@ -45,10 +46,15 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
         }
         DownMsg::BlockCreated(msg) => {
             println!("Create block {}", msg.id);
+            let raw_words = MutableVec::new();
+            for word in msg.words {
+                raw_words.lock_mut().push_cloned(word)
+            }
             let block = RenderBlock {
                 id: msg.id,
                 speaker: msg.speaker,
-                text: Mutable::new(msg.text),
+                raw_words,
+                corrected_text: Mutable::new("TBD".to_string()),
             };
             blocks().lock_mut().push_cloned(Arc::new(block));
         }
@@ -56,12 +62,17 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
             println!("Edit block {}", msg.id);
             let blocks = blocks().lock_ref();
             match blocks.iter().find(|block| block.id == msg.id) {
-                Some(block) => block.text.lock_mut().replace_range(.., &msg.text),
+                Some(block) => {
+                    for word in msg.words {
+                        block.raw_words.lock_mut().push_cloned(word)
+                    }
+                }
                 None => println!("No block {:?} found to update", msg.id),
             }
         }
         DownMsg::BlockMergedWithAbove(msg) => {
             println!("Merge block {} with the block above", msg.id);
+
             // Find our position in the blocks (if we exist)
             let pos = blocks()
                 .lock_ref()
@@ -81,8 +92,9 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
                             if blocks[prev_idx].speaker != blocks[idx].speaker {
                                 eprintln!("Cannot merge different speakers");
                             } else {
-                                blocks[prev_idx].text.lock_mut().push(' ');
-                                blocks[prev_idx].text.lock_mut().push_str(&msg.text);
+                                for word in msg.words {
+                                    blocks[prev_idx].raw_words.lock_mut().push_cloned(word);
+                                }
                                 remove_block(msg.id);
                             }
                         }
@@ -126,18 +138,34 @@ fn edit_block(id: Id) {
         match blocks.iter().find(|block| block.id == id) {
             None => println!("... no block #{} to edit", id),
             Some(block) => {
-                let new_text: Vec<String> = vec![
-                    Buzzword().fake(),
-                    BuzzwordMiddle().fake(),
-                    BuzzwordTail().fake(),
-                    ": ".to_string(),
-                    CatchPhase().fake(),
+                let new_text: Vec<Word> = vec![
+                    Word {
+                        confidence: 99.0,
+                        start: 0,
+                        end: 0,
+                        speaker: Some(block.speaker.clone()),
+                        text: Buzzword().fake(),
+                    },
+                    Word {
+                        confidence: 99.0,
+                        start: 0,
+                        end: 0,
+                        speaker: Some(block.speaker.clone()),
+                        text: BuzzwordMiddle().fake(),
+                    },
+                    Word {
+                        confidence: 99.0,
+                        start: 0,
+                        end: 0,
+                        speaker: Some(block.speaker.clone()),
+                        text: BuzzwordTail().fake(),
+                    },
                 ];
                 let result = connection()
                     .send_up_msg(UpMsg::EditBlock(BlockMessage {
                         id,
                         speaker: block.speaker.to_string(),
-                        text: new_text.join(" "),
+                        words: new_text,
                     }))
                     .await;
                 if let Err(error) = result {
@@ -170,7 +198,7 @@ fn remove_block(id: Id) {
             .send_up_msg(UpMsg::DeleteBlock(BlockMessage {
                 id,
                 speaker: "n/a".to_string(), // TODO: Create a BlockIdOnlyMessage (but w/ better name)
-                text: "n/a".to_string(),
+                words: vec![],
             }))
             .await;
         if let Err(error) = result {
@@ -188,12 +216,15 @@ fn merge_above(id: Id) {
         match found {
             None => println!("Merge block #{} not found", id),
             Some(block) => {
-                let text = block.text.lock_ref().clone();
+                let mut words_to_merge: Vec<Word> = Vec::new();
+                for word in block.raw_words.lock_ref().iter() {
+                    words_to_merge.push(word.clone());
+                }
                 let result = connection()
                     .send_up_msg(UpMsg::MergeBlockAbove(BlockMessage {
                         id,
                         speaker: block.speaker.to_string(),
-                        text,
+                        words: words_to_merge,
                     }))
                     .await;
                 if let Err(error) = result {
@@ -280,7 +311,7 @@ fn block(block: Arc<RenderBlock>) -> RawHtmlEl {
         .children(IntoIterator::into_iter([
             block_id(id),
             block_speaker(id, block.speaker.clone()),
-            block_text(id, block.text.clone()),
+            block_text(block),
             block_edit_button(id),
             block_merge_above(id),
             block_remove_button(id),
@@ -300,23 +331,28 @@ fn block_speaker(id: Id, speaker: String) -> RawHtmlEl {
     )
 }
 
-fn block_text(id: Id, text: Mutable<String>) -> RawHtmlEl {
-    let source_text = text.lock_ref();
+fn block_text(block: Arc<RenderBlock>) -> RawHtmlEl {
+    let id = block.id;
+    let words = &block.raw_words;
     RawHtmlEl::new("td").attr("class", "col-md-6").child(
         RawHtmlEl::new("p")
             .event_handler(move |_: events::Click| select_block(id))
-            .children(IntoIterator::into_iter(source_text.split(' ').map(
-                |word| {
-                    let conf: f32 = rand::thread_rng().gen_range(0.67..1.0);
-                    let conf_class = if conf < 0.69 { "conf-low" } else { "" };
-                    RawHtmlEl::new("span")
-                        .attr("class", conf_class)
-                        .child(format!("{} ", word))
-                        .attr("data-toggle", "tooltip")
-                        .attr("data-placement", "bottom")
-                        .attr("title", format!("{:02.2}%", conf * 100.0).as_str())
-                },
-            ))),
+            .children_signal_vec(words.signal_vec_cloned().map(|word| {
+                let conf_class = if word.confidence <= 0.50 {
+                    "conf-low"
+                } else {
+                    ""
+                };
+                RawHtmlEl::new("span")
+                    .attr("class", conf_class)
+                    .child(format!("{} ", word.text))
+                    .attr("data-toggle", "tooltip")
+                    .attr("data-placement", "bottom")
+                    .attr(
+                        "title",
+                        format!("{:02.1}%", word.confidence * 100.0).as_str(),
+                    )
+            })),
     )
 }
 
