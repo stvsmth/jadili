@@ -54,7 +54,12 @@ async def send_receive():
                 try:
                     data = stream.read(FRAMES_PER_BUFFER)
                     data = base64.b64encode(data).decode("utf-8")
-                    json_data = json.dumps({"audio_data": str(data)})
+                    json_data = json.dumps(
+                        {
+                            "audio_data": str(data),
+                            "speaker_labels": True,
+                        }
+                    )
                     await _ws.send(json_data)
                 except websockets.exceptions.ConnectionClosedError as e:
                     print(e)
@@ -71,6 +76,7 @@ async def send_receive():
 
         async def receive():
             last_text = ""
+            i = 0
             while True:
                 try:
                     result_str = await _ws.recv()
@@ -81,10 +87,15 @@ async def send_receive():
                         continue
 
                     if result_json.get("message_type") == "FinalTranscript":
+                        i += 1
                         sys.stdout.write("\b")
                         print(80 * "=")
                         print(text)
                         print(80 * "=")
+                        filename = f"../sample_{i:04d}.json"
+                        with open(filename, "w") as f:
+                            f.write(result_str)
+
                     else:
                         if text and text != last_text:
                             sys.stdout.write("\b")

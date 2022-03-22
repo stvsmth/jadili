@@ -8,9 +8,11 @@ frontend/wasm-pack*
 
 __pycache__/
 
-auth_keys.txt
+auth_*.txt
+auth_*.env
 
 recordings-transcripts/
 
 .DS_Store
 *.wav
+*.json

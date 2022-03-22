@@ -1,17 +1,15 @@
 use fake::faker::company::en::*;
 use fake::Fake;
-use shared::{BlockMessage, EventChoiceMessage};
+use shared::{BlockMessage, EventChoiceMessage, Word};
 use shared::{DownMsg, UpMsg};
 use std::ops::Not;
 use std::sync::Arc;
 use zoon::{
-    eprintln, println, static_ref, Connection, Mutable, MutableVec, RawHtmlEl, Signal, Task, Text,
-    *,
+    eprintln, println, static_ref, Connection, Mutable, MutableVec, RawHtmlEl, Signal, Task, *,
 };
 
 // ------ ------
-// TODO
-// Read Mutable / future
+// Reference reading around Mutable and signals
 // https://docs.rs/futures-signals/0.3.22/futures_signals/tutorial/index.html
 
 // ------ ------
@@ -23,6 +21,7 @@ fn selected_block() -> &'static Mutable<Option<Id>> {
     Mutable::new(None)
 }
 
+// TODO: Research exactly why we're using Arc
 #[static_ref]
 fn blocks() -> &'static MutableVec<Arc<RenderBlock>> {
     MutableVec::new()
@@ -30,11 +29,13 @@ fn blocks() -> &'static MutableVec<Arc<RenderBlock>> {
 
 type Id = usize;
 
+#[allow(dead_code)] // TODO: use corrected_text
 #[derive(Debug)]
 struct RenderBlock {
     id: usize,
     speaker: String,
-    text: Mutable<String>,
+    raw_words: MutableVec<Word>,
+    corrected_text: Mutable<String>,
 }
 
 #[static_ref]
@@ -45,10 +46,15 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
         }
         DownMsg::BlockCreated(msg) => {
             println!("Create block {}", msg.id);
+            let raw_words = MutableVec::new();
+            for word in msg.words {
+                raw_words.lock_mut().push_cloned(word)
+            }
             let block = RenderBlock {
                 id: msg.id,
                 speaker: msg.speaker,
-                text: Mutable::new(msg.text),
+                raw_words,
+                corrected_text: Mutable::new("TBD".to_string()),
             };
             blocks().lock_mut().push_cloned(Arc::new(block));
         }
@@ -56,10 +62,48 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
             println!("Edit block {}", msg.id);
             let blocks = blocks().lock_ref();
             match blocks.iter().find(|block| block.id == msg.id) {
-                Some(block) => block.text.lock_mut().replace_range(.., &msg.text),
+                Some(block) => {
+                    for word in msg.words {
+                        block.raw_words.lock_mut().push_cloned(word)
+                    }
+                }
                 None => println!("No block {:?} found to update", msg.id),
             }
         }
+        DownMsg::BlockMergedWithAbove(msg) => {
+            println!("Merge block {} with the block above", msg.id);
+
+            // Find our position in the blocks (if we exist)
+            let pos = blocks()
+                .lock_ref()
+                .iter()
+                .position(|block| block.id == msg.id);
+
+            // Given the position of the block we want to merge above, extract its text, append above, the delete
+            // ... only merge blocks if the speakers are the same
+            match pos {
+                Some(0) => println!("Cannot merge first element, there's nothing above us"),
+                Some(idx) => {
+                    let blocks = blocks().lock_ref();
+                    match blocks.iter().find(|block| block.id == msg.id) {
+                        None => println!(" ... no block #{} found to merge above", msg.id),
+                        Some(_) => {
+                            let prev_idx = idx - 1;
+                            if blocks[prev_idx].speaker != blocks[idx].speaker {
+                                eprintln!("Cannot merge different speakers");
+                            } else {
+                                for word in msg.words {
+                                    blocks[prev_idx].raw_words.lock_mut().push_cloned(word);
+                                }
+                                remove_block(msg.id);
+                            }
+                        }
+                    }
+                }
+                None => println!("No current block {} found, cannot merge above", msg.id),
+            };
+        }
+
         DownMsg::BlockDeleted(msg) => {
             println!("... looking for block {} to delete", msg.id);
             let pos = blocks()
@@ -94,18 +138,34 @@ fn edit_block(id: Id) {
         match blocks.iter().find(|block| block.id == id) {
             None => println!("... no block #{} to edit", id),
             Some(block) => {
-                let new_text: Vec<String> = vec![
-                    Buzzword().fake(),
-                    BuzzwordMiddle().fake(),
-                    BuzzwordTail().fake(),
-                    ": ".to_string(),
-                    CatchPhase().fake(),
+                let new_text: Vec<Word> = vec![
+                    Word {
+                        confidence: 99.0,
+                        start: 0,
+                        end: 0,
+                        speaker: Some(block.speaker.clone()),
+                        text: Buzzword().fake(),
+                    },
+                    Word {
+                        confidence: 99.0,
+                        start: 0,
+                        end: 0,
+                        speaker: Some(block.speaker.clone()),
+                        text: BuzzwordMiddle().fake(),
+                    },
+                    Word {
+                        confidence: 99.0,
+                        start: 0,
+                        end: 0,
+                        speaker: Some(block.speaker.clone()),
+                        text: BuzzwordTail().fake(),
+                    },
                 ];
                 let result = connection()
                     .send_up_msg(UpMsg::EditBlock(BlockMessage {
                         id,
                         speaker: block.speaker.to_string(),
-                        text: new_text.join(" "),
+                        words: new_text,
                     }))
                     .await;
                 if let Err(error) = result {
@@ -128,6 +188,7 @@ fn choose_event(event_id: usize) {
 }
 
 fn select_block(id: Id) {
+    // TODO: This assigns the `current` class to the selected block, but we're not styling on that class yet
     selected_block().set(Some(id))
 }
 
@@ -137,11 +198,39 @@ fn remove_block(id: Id) {
             .send_up_msg(UpMsg::DeleteBlock(BlockMessage {
                 id,
                 speaker: "n/a".to_string(), // TODO: Create a BlockIdOnlyMessage (but w/ better name)
-                text: "n/a".to_string(),
+                words: vec![],
             }))
             .await;
         if let Err(error) = result {
             eprintln!("Failed to send delete block message: {:?}", error);
+        }
+    });
+}
+
+fn merge_above(id: Id) {
+    println!("Merge above {}", id);
+    Task::start(async move {
+        let blocks = blocks().lock_ref();
+        let found = blocks.iter().find(|b| b.id == id);
+
+        match found {
+            None => println!("Merge block #{} not found", id),
+            Some(block) => {
+                let mut words_to_merge: Vec<Word> = Vec::new();
+                for word in block.raw_words.lock_ref().iter() {
+                    words_to_merge.push(word.clone());
+                }
+                let result = connection()
+                    .send_up_msg(UpMsg::MergeBlockAbove(BlockMessage {
+                        id,
+                        speaker: block.speaker.to_string(),
+                        words: words_to_merge,
+                    }))
+                    .await;
+                if let Err(error) = result {
+                    eprintln!("Failed to send merge above block message: {:?}", error);
+                }
+            }
         }
     });
 }
@@ -222,8 +311,9 @@ fn block(block: Arc<RenderBlock>) -> RawHtmlEl {
         .children(IntoIterator::into_iter([
             block_id(id),
             block_speaker(id, block.speaker.clone()),
-            block_text(id, block.text.signal_cloned()),
+            block_text(block),
             block_edit_button(id),
+            block_merge_above(id),
             block_remove_button(id),
             RawHtmlEl::new("td").attr("class", "col-md-6"),
         ]))
@@ -237,38 +327,76 @@ fn block_speaker(id: Id, speaker: String) -> RawHtmlEl {
     RawHtmlEl::new("td").attr("class", "col-md-1").child(
         RawHtmlEl::new("a")
             .event_handler(move |_: events::Click| select_block(id))
-            .child(Text::new(speaker)),
+            .child(speaker),
     )
 }
 
-fn block_text(_id: Id, text: impl Signal<Item = String> + Unpin + 'static) -> RawHtmlEl {
+fn block_text(block: Arc<RenderBlock>) -> RawHtmlEl {
+    let id = block.id;
+    let words = &block.raw_words;
     RawHtmlEl::new("td").attr("class", "col-md-6").child(
-        RawHtmlEl::new("div")
-            // .event_handler(move |_: events::Click| select_block(id))
-            .child(Text::with_signal(text)),
+        RawHtmlEl::new("p")
+            .event_handler(move |_: events::Click| select_block(id))
+            .children_signal_vec(words.signal_vec_cloned().map(|word| {
+                let conf_class = if word.confidence <= 0.50 {
+                    "conf-low"
+                } else {
+                    ""
+                };
+                RawHtmlEl::new("span")
+                    .attr("class", conf_class)
+                    .child(format!("{} ", word.text))
+                    .attr("data-toggle", "tooltip")
+                    .attr("data-placement", "bottom")
+                    .attr(
+                        "title",
+                        format!("{:02.1}%", word.confidence * 100.0).as_str(),
+                    )
+            })),
     )
 }
 
 fn block_edit_button(id: Id) -> RawHtmlEl {
-    RawHtmlEl::new("td").attr("class", "col-md-1").child(
+    RawHtmlEl::new("td").attr("class", "col-1").child(
         RawHtmlEl::new("a")
             .event_handler(move |_: events::Click| edit_block(id))
             .child(
+                // TODO: Investigate creating a custom SpanWithTooltip element, there's a lot of boiler plate below
                 RawHtmlEl::new("span")
                     .attr("class", "glyphicon glyphicon-edit edit")
-                    .attr("aria-hidden", "true"),
+                    .attr("aria-hidden", "true")
+                    .attr("data-toggle", "tooltip")
+                    .attr("data-placement", "bottom")
+                    .attr("title", "Edit block contents"),
+            ),
+    )
+}
+fn block_merge_above(id: Id) -> RawHtmlEl {
+    RawHtmlEl::new("td").attr("class", "col-1").child(
+        RawHtmlEl::new("a")
+            .event_handler(move |_: events::Click| merge_above(id))
+            .child(
+                RawHtmlEl::new("span")
+                    .attr("class", "glyphicon glyphicon-upload upload")
+                    .attr("aria-hidden", "true")
+                    .attr("data-toggle", "tooltip")
+                    .attr("data-placement", "bottom")
+                    .attr("title", "Merge with block above"),
             ),
     )
 }
 
 fn block_remove_button(id: Id) -> RawHtmlEl {
-    RawHtmlEl::new("td").attr("class", "col-md-1").child(
+    RawHtmlEl::new("td").attr("class", "col-1").child(
         RawHtmlEl::new("a")
             .event_handler(move |_: events::Click| remove_block(id))
             .child(
                 RawHtmlEl::new("span")
                     .attr("class", "glyphicon glyphicon-remove remove")
-                    .attr("aria-hidden", "true"),
+                    .attr("aria-hidden", "true")
+                    .attr("data-toggle", "tooltip")
+                    .attr("data-placement", "bottom")
+                    .attr("title", "Remove this block"),
             ),
     )
 }

@@ -2,9 +2,38 @@ use fake::faker::lorem::en::*;
 use fake::Fake;
 use moon::tokio::time::{sleep, Duration};
 use moon::*;
-use rand::prelude::*;
-use shared::{BlockMessage, DownMsg, EventStreamMessage, UpMsg};
+use shared::{BlockMessage, DownMsg, EventStreamMessage, UpMsg, Utterance};
+use std::error::Error;
+use std::fs::File;
+use std::io::BufReader;
+use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
+
+fn read_user_from_file<P: AsRef<Path>>(path: P) -> Result<Utterance, Box<dyn Error>> {
+    let file = File::open(path)?;
+    let reader = BufReader::new(file);
+    let tx = serde_json::from_reader(reader)?;
+    Ok(tx)
+}
+
+fn get_sample_json(id: usize) -> Option<BlockMessage> {
+    let path = format!("./sample_{:04}.json", id);
+    match read_user_from_file(path) {
+        Ok(block) => {
+            let speaker = block.speaker.clone().unwrap_or_else(|| "".to_string());
+            Some(BlockMessage {
+                id,
+                words: block.words,
+                speaker,
+            })
+        }
+        Err(_) => {
+            // TODO: Only squash this if it is file not found (2)
+            // println!("Err kind: {:?}", err);
+            None
+        }
+    }
+}
 
 async fn frontend() -> Frontend {
     Frontend::new()
@@ -25,6 +54,9 @@ async fn up_msg_handler(req: UpMsgRequest<UpMsg>) {
         UpMsg::EditBlock(block) => {
             sessions::broadcast_down_msg(&DownMsg::BlockEdited(block), cor_id).await;
         }
+        UpMsg::MergeBlockAbove(block) => {
+            sessions::broadcast_down_msg(&DownMsg::BlockMergedWithAbove(block), cor_id).await;
+        }
         UpMsg::ChooseEvent(event) => {
             let lorem: Vec<String> = Words(3..5).fake();
             let stream = EventStreamMessage {
@@ -34,28 +66,15 @@ async fn up_msg_handler(req: UpMsgRequest<UpMsg>) {
             sessions::broadcast_down_msg(&DownMsg::EventSelected(stream), cor_id).await;
 
             static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
-
             tokio::spawn(async move {
                 loop {
-                    // let next_id = NEXT_ID.fetch_add(1, Ordering::SeqCst);
-                    let lorem: Vec<String> = Sentences(2..14).fake();
-                    let speaker = ['A', 'B', 'C', 'D', 'E', 'F', 'G']
-                        .choose(&mut rand::thread_rng())
-                        .unwrap()
-                        .to_string();
-                    let block = BlockMessage {
-                        id: NEXT_ID.fetch_add(1, Ordering::SeqCst),
-                        // id: next_id,
-                        text: lorem.join(" "),
-                        speaker,
-                    };
-
-                    sessions::broadcast_down_msg(&DownMsg::BlockCreated(block), cor_id).await;
-                    sleep(Duration::from_millis(2000)).await;
-
-                    // if next_id > 15 {
-                    //     break;
-                    // }
+                    // We may not have the next file on disk, no worries, sleep and come back later
+                    let id = NEXT_ID.load(Ordering::SeqCst);
+                    if let Some(block) = get_sample_json(NEXT_ID.load(Ordering::SeqCst)) {
+                        sessions::broadcast_down_msg(&DownMsg::BlockCreated(block), cor_id).await;
+                        NEXT_ID.store(id + 1, Ordering::SeqCst);
+                    }
+                    sleep(Duration::from_millis(500)).await; // TODO: tighten this up once it's working
                 }
             });
         }
