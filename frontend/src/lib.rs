@@ -4,6 +4,7 @@ use shared::{BlockMessage, EventChoiceMessage, Word};
 use shared::{DownMsg, UpMsg};
 use std::ops::Not;
 use std::sync::Arc;
+use zoon::futures_signals::signal_vec::MutableVecLockRef;
 use zoon::{
     eprintln, println, static_ref, Connection, Mutable, MutableVec, RawHtmlEl, Signal, Task, *,
 };
@@ -29,13 +30,12 @@ fn blocks() -> &'static MutableVec<Arc<RenderBlock>> {
 
 type Id = usize;
 
-#[allow(dead_code)] // TODO: use corrected_text
 #[derive(Debug)]
 struct RenderBlock {
     id: usize,
     speaker: String,
     raw_words: MutableVec<Word>,
-    corrected_text: Mutable<String>,
+    full_text: Mutable<String>,
 }
 
 #[static_ref]
@@ -50,11 +50,12 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
             for word in msg.words {
                 raw_words.lock_mut().push_cloned(word)
             }
+            let full_text = build_full_text(raw_words.lock_ref());
             let block = RenderBlock {
                 id: msg.id,
                 speaker: msg.speaker,
                 raw_words,
-                corrected_text: Mutable::new("TBD".to_string()),
+                full_text: Mutable::new(full_text),
             };
             blocks().lock_mut().push_cloned(Arc::new(block));
         }
@@ -79,8 +80,8 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
                 .iter()
                 .position(|block| block.id == msg.id);
 
-            // Given the position of the block we want to merge above, extract its text, append above, the delete
-            // ... only merge blocks if the speakers are the same
+            // Given the position of the block we want to merge above, extract its text, append above, then delete
+            // ... only merge blocks if the speakers in both blocks are the same
             match pos {
                 Some(0) => println!("Cannot merge first element, there's nothing above us"),
                 Some(idx) => {
@@ -95,6 +96,16 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
                                 for word in msg.words {
                                     blocks[prev_idx].raw_words.lock_mut().push_cloned(word);
                                 }
+                                let full_text =
+                                    build_full_text(blocks[prev_idx].raw_words.lock_ref());
+                                blocks[prev_idx]
+                                    .full_text
+                                    .lock_mut()
+                                    .replace_range(.., full_text.as_str());
+                                println!(
+                                    "Full text: {}",
+                                    blocks[prev_idx].full_text.lock_ref().to_string()
+                                );
                                 remove_block(msg.id);
                             }
                         }
@@ -158,7 +169,7 @@ fn edit_block(id: Id) {
                         start: 0,
                         end: 0,
                         speaker: Some(block.speaker.clone()),
-                        text: BuzzwordTail().fake(),
+                        text: format!("{}.", BuzzwordTail().fake::<String>()),
                     },
                 ];
                 let result = connection()
@@ -399,6 +410,19 @@ fn block_remove_button(id: Id) -> RawHtmlEl {
                     .attr("title", "Remove this block"),
             ),
     )
+}
+// ------ ------
+//     Utils
+// ------ ------
+
+// TODO: This should be a method on the RenderBlock struct, but I have some things to figure out
+fn build_full_text(raw_words: MutableVecLockRef<Word>) -> String {
+    // Use the raw word structs to build up the space-delimited full text for validation by humans
+    raw_words
+        .iter()
+        .map(|w| w.text.clone())
+        .collect::<Vec<String>>()
+        .join(" ")
 }
 
 // ------ ------
