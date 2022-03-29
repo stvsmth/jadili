@@ -2,6 +2,7 @@
 
 # https://www.assemblyai.com/blog/real-time-speech-recognition-with-python/
 
+from urllib.parse import urlencode
 from configure import auth_key
 from pprint import pprint
 import asyncio
@@ -11,12 +12,18 @@ import pyaudio
 import sys
 import websockets
 
-URL = "wss://api.assemblyai.com/v2/realtime/ws?sample_rate=16000"
+SAMPLE_RATE=16000
+PARAMS = {
+    "sample_rate": SAMPLE_RATE,
+    "word_boost": json.dumps(["Jadili", "AssemblyAI"]),
+}
+
+URL = f"wss://api.assemblyai.com/v2/realtime/ws?{urlencode(PARAMS)}"
 
 FRAMES_PER_BUFFER = 3200
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
-RATE = 16000
+RATE = SAMPLE_RATE
 p = pyaudio.PyAudio()
 
 stream = p.open(
