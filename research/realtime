@@ -12,7 +12,7 @@ import pyaudio
 import sys
 import websockets
 
-SAMPLE_RATE=16000
+SAMPLE_RATE = 16000
 PARAMS = {
     "sample_rate": SAMPLE_RATE,
     "word_boost": json.dumps(["Jadili", "AssemblyAI"]),
@@ -39,6 +39,13 @@ def spinning_cursor():
     while True:
         for cursor in "|/-\\":
             yield cursor
+
+
+async def handle_cancel():
+    tasks = asyncio.all_tasks()
+    for task in tasks:
+        task.cancel()
+        await task
 
 
 async def send_receive():
@@ -72,6 +79,8 @@ async def send_receive():
                     print(e)
                     assert e.code == 4008
                     break
+                except KeyboardInterrupt:
+                    await handle_cancel()
                 except Exception as e:
                     assert False, "Not a websocket 4008 error"
 
@@ -116,6 +125,8 @@ async def send_receive():
                     print(e)
                     assert e.code == 4008
                     break
+                except KeyboardInterrupt:
+                    await handle_cancel()
                 except Exception as e:
                     assert False, "Not a websocket 4008 error"
 
@@ -126,5 +137,6 @@ if __name__ == "__main__":
 
     try:
         asyncio.run(send_receive())
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, asyncio.exceptions.CancelledError):
+        print("\nThanks for playing")
         sys.exit(0)
