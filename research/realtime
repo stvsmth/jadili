@@ -10,6 +10,7 @@ import base64
 import json
 import pyaudio
 import sys
+import wave
 import websockets
 
 SAMPLE_RATE = 16000
@@ -34,6 +35,9 @@ stream = p.open(
     frames_per_buffer=FRAMES_PER_BUFFER,
 )
 
+# TODO: Ugh, global
+buffer = []
+
 
 def spinning_cursor():
     while True:
@@ -41,15 +45,26 @@ def spinning_cursor():
             yield cursor
 
 
-async def handle_cancel():
-    tasks = asyncio.all_tasks()
-    for task in tasks:
-        task.cancel()
-        await task
+def handle_cancel(buffer):
+    with wave.open(".audio/sound_data.wav", "wb") as f:
+        f.setnchannels(CHANNELS)
+        f.setsampwidth(p.get_sample_size(FORMAT))
+        f.setframerate(SAMPLE_RATE)
+        f.writeframes(b"".join(buffer))
+        f.close()
+
+    try:
+        tasks = asyncio.all_tasks()
+        for task in tasks:
+            task.cancel()
+    except RuntimeError:
+        pass  # No tasks to cancel
 
 
 async def send_receive():
-    print("\nAllow your computer to use the microphone, then start talking.")
+    print(
+        "\nAllow your computer to use the microphone, then start talking. Control-C to stop."
+    )
     print()
 
     spinner = spinning_cursor()
@@ -67,6 +82,7 @@ async def send_receive():
 
                 try:
                     data = stream.read(FRAMES_PER_BUFFER)
+                    buffer.append(data)  # so we can write audio out later
                     data = base64.b64encode(data).decode("utf-8")
                     json_data = json.dumps({"audio_data": str(data)})
                     await _ws.send(json_data)
@@ -75,7 +91,9 @@ async def send_receive():
                     assert e.code == 4008
                     break
                 except KeyboardInterrupt:
-                    await handle_cancel()
+                    print("... cancelling")
+                    await asyncio.sleep(1)
+                    handle_cancel(buffer)
                 except Exception as e:
                     assert False, "Not a websocket 4008 error"
 
@@ -121,7 +139,9 @@ async def send_receive():
                     assert e.code == 4008
                     break
                 except KeyboardInterrupt:
-                    await handle_cancel()
+                    print("... cancelling")
+                    await asyncio.sleep(1)
+                    handle_cancel(buffer)
                 except Exception as e:
                     assert False, "Not a websocket 4008 error"
 
@@ -133,5 +153,7 @@ if __name__ == "__main__":
     try:
         asyncio.run(send_receive())
     except (KeyboardInterrupt, asyncio.exceptions.CancelledError):
-        print("\nThanks for playing")
+        print("... cancelling")
+        handle_cancel(buffer)
+        print("\nThanks for recording with us.")
         sys.exit(0)
