@@ -45,19 +45,27 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
             println!("Chose event {:?}, cor_id: {}", msg.id, cor_id);
         }
         DownMsg::BlockCreated(msg) => {
-            println!("Create block {}", msg.id);
-            let raw_words = MutableVec::new();
-            for word in msg.words {
-                raw_words.lock_mut().push_cloned(word)
+            let mut blocks = blocks().lock_mut();
+            match blocks.iter().find(|block| block.id == msg.id) {
+                Some(block) => {
+                    println!("... block {} already exists", block.id);
+                }
+                None => {
+                    println!("Create block {}", msg.id);
+                    let raw_words = MutableVec::new();
+                    for word in msg.words {
+                        raw_words.lock_mut().push_cloned(word)
+                    }
+                    let full_text = build_full_text(raw_words.lock_ref());
+                    let block = RenderBlock {
+                        id: msg.id,
+                        speaker: msg.speaker,
+                        raw_words,
+                        full_text: Mutable::new(full_text),
+                    };
+                    blocks.push_cloned(Arc::new(block));
+                }
             }
-            let full_text = build_full_text(raw_words.lock_ref());
-            let block = RenderBlock {
-                id: msg.id,
-                speaker: msg.speaker,
-                raw_words,
-                full_text: Mutable::new(full_text),
-            };
-            blocks().lock_mut().push_cloned(Arc::new(block));
         }
         DownMsg::BlockEdited(msg) => {
             println!("Edit block {}", msg.id);
