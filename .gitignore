@@ -1,18 +1,15 @@
-debug/
-target/
-
-cargo_install_root
-mzoon
-mzoon.exe
-frontend/wasm-pack*
-
+# build artifacts
 __pycache__/
+cargo_install_root
+debug/
+frontend/wasm-pack*
+mzoon
+target/
 
 auth_*.txt
 auth_*.env
 
-recordings-transcripts/
-
 .DS_Store
+
 *.wav
 *.json
