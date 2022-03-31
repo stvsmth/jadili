@@ -16,8 +16,8 @@ fn read_user_from_file<P: AsRef<Path>>(path: P) -> Result<Utterance, Box<dyn Err
     Ok(tx)
 }
 
-fn get_sample_json(id: usize) -> Option<BlockMessage> {
-    let path = format!("./sample_{:04}.json", id);
+fn get_transcription_results(id: usize) -> Option<BlockMessage> {
+    let path = format!("./public/assets/block_{:04}.json", id);
     match read_user_from_file(path) {
         Ok(block) => {
             let speaker = block.speaker.clone().unwrap_or_else(|| "".to_string());
@@ -40,7 +40,17 @@ async fn frontend() -> Frontend {
         .title("Jadili")
         .default_styles(false)
         .append_to_head(r#"<link href="/_api/public/css/currentStyle.css" rel="stylesheet"/>"#)
-        .body_content(r#"<div id="main"></div>"#)
+        .body_content(  // FIXME: Pull JS setCurrentTime once we get the Rust / web_sys stuff
+            r#"
+            <div id="main"></div>
+            <script>
+            function setCurrentTime(positionInSeconds) {
+                let audio = document.getElementById("audio-player");
+                audio.currentTime = positionInSeconds;
+            }
+            </script>
+            "#,
+        )
 }
 
 async fn up_msg_handler(req: UpMsgRequest<UpMsg>) {
@@ -70,7 +80,7 @@ async fn up_msg_handler(req: UpMsgRequest<UpMsg>) {
                 loop {
                     // We may not have the next file on disk, no worries, sleep and come back later
                     let id = NEXT_ID.load(Ordering::SeqCst);
-                    if let Some(block) = get_sample_json(NEXT_ID.load(Ordering::SeqCst)) {
+                    if let Some(block) = get_transcription_results(NEXT_ID.load(Ordering::SeqCst)) {
                         sessions::broadcast_down_msg(&DownMsg::BlockCreated(block), cor_id).await;
                         NEXT_ID.store(id + 1, Ordering::SeqCst);
                     }
