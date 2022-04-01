@@ -4,8 +4,8 @@ use moon::tokio::time::{sleep, Duration};
 use moon::*;
 use shared::{BlockMessage, DownMsg, EventStreamMessage, UpMsg, Utterance};
 use std::error::Error;
-use std::fs::File;
-use std::io::BufReader;
+use std::fs::{self, File};
+use std::io::{BufReader, Write};
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -40,17 +40,7 @@ async fn frontend() -> Frontend {
         .title("Jadili")
         .default_styles(false)
         .append_to_head(r#"<link href="/_api/public/css/currentStyle.css" rel="stylesheet"/>"#)
-        .body_content(  // FIXME: Pull JS setCurrentTime once we get the Rust / web_sys stuff
-            r#"
-            <div id="main"></div>
-            <script>
-            function setCurrentTime(positionInSeconds) {
-                let audio = document.getElementById("audio-player");
-                audio.currentTime = positionInSeconds;
-            }
-            </script>
-            "#,
-        )
+        .body_content(r#"<div id="main"></div>"#)
 }
 
 async fn up_msg_handler(req: UpMsgRequest<UpMsg>) {
@@ -65,6 +55,7 @@ async fn up_msg_handler(req: UpMsgRequest<UpMsg>) {
             sessions::broadcast_down_msg(&DownMsg::BlockEdited(block), cor_id).await;
         }
         UpMsg::MergeBlockAbove(block) => {
+            merge_audio_files(block.id, block.id - 1);
             sessions::broadcast_down_msg(&DownMsg::BlockMergedWithAbove(block), cor_id).await;
         }
         UpMsg::ChooseEvent(event) => {
@@ -89,6 +80,21 @@ async fn up_msg_handler(req: UpMsgRequest<UpMsg>) {
             });
         }
     }
+}
+
+// FIXME: HORRIBLE ISSUES W/ MULTIPLE EDITORS
+fn merge_audio_files(idx: usize, prev_idx: usize) {
+    println!("Merging audio files for {} and {}", idx, prev_idx);
+    let keeper_name = format!("public/assets/block_{:04}.wav", prev_idx);
+    let goner_name = format!("public/assets/block_{:04}.wav", idx);
+    let goner_contents = fs::read(goner_name).unwrap();
+
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .append(true)
+        .open(keeper_name)
+        .unwrap();
+    file.write_all(&goner_contents).unwrap();
 }
 
 #[moon::main]

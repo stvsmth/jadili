@@ -334,7 +334,7 @@ fn block(block: Arc<RenderBlock>) -> RawHtmlEl {
             block_edit_button(id),
             block_merge_above(id),
             block_remove_button(id),
-            RawHtmlEl::new("td").attr("class", "col-md-6"),
+            block_audio_player(id),
         ]))
 }
 
@@ -419,6 +419,24 @@ fn block_remove_button(id: Id) -> RawHtmlEl {
             ),
     )
 }
+
+fn block_audio_player(id: Id) -> RawHtmlEl {
+    let filename = format!(
+        "http://localhost:8080/_api/public/assets/block_{:04}.wav",
+        id
+    );
+    RawHtmlEl::new("td").attr("class", "col-1").child(
+        RawHtmlEl::new("div").child(
+            RawHtmlEl::new("audio")
+                .attr("id", format!("audio-player-{}", id).as_str())
+                .attr("class", "player col-md-6")
+                .attr("controls", "")
+                .attr("async", "")
+                .attr("src", filename.as_str()),
+        ),
+    )
+}
+
 // ------ ------
 //     Utils
 // ------ ------
