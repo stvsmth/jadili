@@ -13,14 +13,8 @@ import sys
 import wave
 import websockets
 
+
 SAMPLE_RATE = 16000
-PARAMS = {
-    "sample_rate": SAMPLE_RATE,
-    "word_boost": json.dumps(["Jadili", "AssemblyAI"]),
-}
-
-URL = f"wss://api.assemblyai.com/v2/realtime/ws?{urlencode(PARAMS)}"
-
 FRAMES_PER_BUFFER = 3200
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
@@ -37,6 +31,12 @@ stream = p.open(
 
 # TODO: Ugh, global
 buffer = []
+
+PARAMS = {
+    "sample_rate": SAMPLE_RATE,
+    "word_boost": json.dumps(["Jadili", "AssemblyAI"]),
+}
+URL = f"wss://api.assemblyai.com/v2/realtime/ws?{urlencode(PARAMS)}"
 
 
 def spinning_cursor():
@@ -118,13 +118,14 @@ async def send_receive():
                         filename = f"../public/assets/block_{i:04d}.json"
                         with open(filename, "w") as f:
                             f.write(result_str)
-                        
-                        with wave.open(f"../public/assets/block_{i:04d}.wav", "wb") as f:
+
+                        with wave.open(
+                            f"../public/assets/__event_audio.wav", "wb"
+                        ) as f:
                             f.setnchannels(CHANNELS)
                             f.setsampwidth(p.get_sample_size(FORMAT))
                             f.setframerate(SAMPLE_RATE)
                             f.writeframes(b"".join(buffer))
-                        buffer = []
                     else:
                         if text and text != last_text:
                             sys.stdout.write("\b")
@@ -153,7 +154,7 @@ if __name__ == "__main__":
     try:
         asyncio.run(send_receive())
     except (KeyboardInterrupt, asyncio.exceptions.CancelledError):
-        print("... cancelling")
+        print("... cancelling [main]")
         handle_cancel()
         print("\nThanks for recording with us.")
         sys.exit(0)

@@ -64,6 +64,7 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
                         full_text: Mutable::new(full_text),
                     };
                     blocks.push_cloned(Arc::new(block));
+                    load_audio();
                 }
             }
         }
@@ -226,6 +227,26 @@ fn remove_block(id: Id) {
     });
 }
 
+fn play_block(id: Id) {
+    let blocks = blocks().lock_ref();
+    let found = blocks.iter().find(|b| b.id == id);
+
+    match found {
+        None => println!(" No block #{} found to play???", id),
+        Some(block) => {
+            let mut start_time =
+                (block.raw_words.lock_ref().first().unwrap().start as f32 / 1000.0) - 1.0;
+            if start_time < 0.0 {
+                start_time = 0.0
+            }
+            let end_time = block.raw_words.lock_ref().last().unwrap().start as f32 / 1000.0;
+            let duration = end_time - start_time + 1.0;
+            println!("Play block starting at {} for {}", start_time, duration);
+            play_from(start_time, duration);
+        }
+    }
+}
+
 fn merge_above(id: Id) {
     println!("Merge above {}", id);
     Task::start(async move {
@@ -281,6 +302,17 @@ fn jumbotron() -> RawHtmlEl {
                 RawHtmlEl::new("div")
                     .attr("class", "col-md-6")
                     .child(action_buttons()),
+                RawHtmlEl::new("div").child(
+                    RawHtmlEl::new("audio")
+                        .attr("id", "audio-player")
+                        .attr("class", "player col-md-5")
+                        .attr("controls", "")
+                        .attr("async", "")
+                        .attr(
+                            "src",
+                            "http://localhost:8080/_api/public/assets/__event_audio.wav",
+                        ),
+                ),
             ])),
     )
 }
@@ -334,7 +366,7 @@ fn block(block: Arc<RenderBlock>) -> RawHtmlEl {
             block_edit_button(id),
             block_merge_above(id),
             block_remove_button(id),
-            block_audio_player(id),
+            block_play_button(id),
         ]))
 }
 
@@ -420,20 +452,18 @@ fn block_remove_button(id: Id) -> RawHtmlEl {
     )
 }
 
-fn block_audio_player(id: Id) -> RawHtmlEl {
-    let filename = format!(
-        "http://localhost:8080/_api/public/assets/block_{:04}.wav",
-        id
-    );
+fn block_play_button(id: Id) -> RawHtmlEl {
     RawHtmlEl::new("td").attr("class", "col-1").child(
-        RawHtmlEl::new("div").child(
-            RawHtmlEl::new("audio")
-                .attr("id", format!("audio-player-{}", id).as_str())
-                .attr("class", "player col-md-6")
-                .attr("controls", "")
-                .attr("async", "")
-                .attr("src", filename.as_str()),
-        ),
+        RawHtmlEl::new("a")
+            .event_handler(move |_: events::Click| play_block(id))
+            .child(
+                RawHtmlEl::new("span")
+                    .attr("class", "glyphicon glyphicon-play play")
+                    .attr("aria-hidden", "true")
+                    .attr("data-toggle", "tooltip")
+                    .attr("data-placement", "bottom")
+                    .attr("title", "Play audio for this block"),
+            ),
     )
 }
 
@@ -449,6 +479,11 @@ fn build_full_text(raw_words: MutableVecLockRef<Word>) -> String {
         .map(|w| w.text.clone())
         .collect::<Vec<String>>()
         .join(" ")
+}
+#[wasm_bindgen(module = "/js/audio-player.js")]
+extern "C" {
+    fn load_audio();
+    fn play_from(position: f32, duration: f32);
 }
 
 // ------ ------

@@ -23,6 +23,10 @@ body {
     left: -20px;
 }
 
+.player {
+    padding-left: 4px;
+}
+
 .conf-low {
     color: red;
 }
