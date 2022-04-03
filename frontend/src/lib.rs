@@ -482,7 +482,10 @@ fn build_full_text(raw_words: MutableVecLockRef<Word>) -> String {
 }
 #[wasm_bindgen(module = "/js/audio-player.js")]
 extern "C" {
+    #[wasm_bindgen(js_name = loadAudio)]
     fn load_audio();
+
+    #[wasm_bindgen(js_name = playFrom)]
     fn play_from(position: f32, duration: f32);
 }
 

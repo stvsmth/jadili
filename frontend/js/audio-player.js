@@ -1,13 +1,13 @@
 // Functions called by Rust, for now
 
-export function load_audio() {
+export function loadAudio() {
     const player = document.getElementById("audio-player");
     if (player) {
         player.load();
     }
 }
 
-export function play_from(position, duration) {
+export function playFrom(position, duration) {
     const player = document.getElementById("audio-player");
     if (player) {
         player.currentTime = position;
