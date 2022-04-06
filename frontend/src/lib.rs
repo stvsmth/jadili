@@ -115,29 +115,17 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
                                     "Full text: {}",
                                     blocks[prev_idx].full_text.lock_ref().to_string()
                                 );
-                                remove_block(msg.id);
                             }
                         }
                     }
                 }
                 None => println!("No current block {} found, cannot merge above", msg.id),
             };
+
+            do_block_delete(msg.id);
         }
 
-        DownMsg::BlockDeleted(msg) => {
-            println!("... looking for block {} to delete", msg.id);
-            let pos = blocks()
-                .lock_ref()
-                .iter()
-                .position(|block| block.id == msg.id);
-            match pos {
-                Some(index) => {
-                    println!("Found block {}, deleting", msg.id);
-                    blocks().lock_mut().remove(index);
-                }
-                None => print!("No block found for {}", msg.id),
-            }
-        }
+        DownMsg::BlockDeleted(msg) => do_block_delete(msg.id),
     })
 }
 // ------ ------
@@ -487,6 +475,21 @@ extern "C" {
 
     #[wasm_bindgen(js_name = playFrom)]
     fn play_from(position: f32, duration: f32);
+}
+
+fn do_block_delete(msg_id: Id) {
+    // Utility function called by Delete & MergeAbove messages; isolated here
+    // because calling remove_block from MergeAbove will trigger cascading delete messages
+    println!("... looking for block {} to delete", msg_id);
+    let mut blocks = blocks().lock_mut();
+    println!("... blocks are mut"); // FIXME: <== why isn't this line reached ? we must be invoking lock_mut in some bad way.
+                                    // as it works in a raw delete, then it must be something we're doing int he merge codes
+    if let Some(index) = blocks.iter().position(|block| block.id == msg_id) {
+        println!("Found block {}, deleting", msg_id);
+        blocks.remove(index);
+    } else {
+        print!("No block found for {}", msg_id);
+    }
 }
 
 // ------ ------
