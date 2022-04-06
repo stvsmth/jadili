@@ -468,6 +468,7 @@ fn build_full_text(raw_words: MutableVecLockRef<Word>) -> String {
         .collect::<Vec<String>>()
         .join(" ")
 }
+
 #[wasm_bindgen(module = "/js/audio-player.js")]
 extern "C" {
     #[wasm_bindgen(js_name = loadAudio)]
