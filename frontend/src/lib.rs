@@ -11,7 +11,7 @@ use zoon::{
 
 // ------ ------
 // Reference reading around Mutable and signals
-// https://docs.rs/futures-signals/0.3.22/futures_signals/tutorial/index.html
+// https://docs.rs/futures-signals/0.3.24/futures_signals/tutorial/index.html
 
 // ------ ------
 //    States
@@ -36,6 +36,7 @@ struct RenderBlock {
     speaker: String,
     raw_words: MutableVec<Word>,
     full_text: Mutable<String>,
+    is_visible: Mutable<bool>,
 }
 
 #[static_ref]
@@ -62,6 +63,7 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
                         speaker: msg.speaker,
                         raw_words,
                         full_text: Mutable::new(full_text),
+                        is_visible: Mutable::new(true),
                     };
                     blocks.push_cloned(Arc::new(block));
                     load_audio();
@@ -99,6 +101,7 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
                         None => println!(" ... no block #{} found to merge above", msg.id),
                         Some(_) => {
                             let prev_idx = idx - 1;
+                            blocks[idx].is_visible.set(false);
                             if blocks[prev_idx].speaker != blocks[idx].speaker {
                                 eprintln!("Cannot merge different speakers");
                             } else {
@@ -121,8 +124,6 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
                 }
                 None => println!("No current block {} found, cannot merge above", msg.id),
             };
-
-            do_block_delete(msg.id);
         }
 
         DownMsg::BlockDeleted(msg) => do_block_delete(msg.id),
@@ -346,6 +347,12 @@ fn block(block: Arc<RenderBlock>) -> RawHtmlEl {
             selected_block()
                 .signal_ref(move |selected_id| ((*selected_id)? == id).then(|| "current")),
         )
+        .attr_signal(
+            "class",
+            block
+                .is_visible
+                .signal_ref(move |is_visible| (!*is_visible).then(|| "hide")),
+        )
         .attr("class", block.speaker.as_str())
         .children(IntoIterator::into_iter([
             block_id(id),
@@ -479,8 +486,8 @@ extern "C" {
 }
 
 fn do_block_delete(msg_id: Id) {
-    // Utility function called by Delete & MergeAbove messages; isolated here
-    // because calling remove_block from MergeAbove will trigger cascading delete messages
+    // Utility function called by Delete (and, formerly,  MergeAbove before we moved to hiding;
+    // isolated here because calling remove_block from MergeAbove will trigger cascading delete messages
     println!("... looking for block {} to delete", msg_id);
     let mut blocks = blocks().lock_mut();
     println!("... blocks are mut"); // FIXME: <== why isn't this line reached ? we must be invoking lock_mut in some bad way.
