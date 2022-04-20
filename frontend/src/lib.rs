@@ -100,7 +100,13 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
                     match blocks.iter().find(|block| block.id == msg.id) {
                         None => println!(" ... no block #{} found to merge above", msg.id),
                         Some(_) => {
-                            let prev_idx = idx - 1;
+                            let mut prev_idx = idx - 1;
+                            // walk back blocks until we find the first visible block above us
+                            while !*blocks[prev_idx].is_visible.lock_ref() {
+                               if prev_idx != 0 {
+                                   prev_idx -= 1;
+                               }
+                            }
                             blocks[idx].is_visible.set(false);
                             if blocks[prev_idx].speaker != blocks[idx].speaker {
                                 eprintln!("Cannot merge different speakers");
@@ -490,7 +496,7 @@ fn do_block_delete(msg_id: Id) {
     // isolated here because calling remove_block from MergeAbove will trigger cascading delete messages
     println!("... looking for block {} to delete", msg_id);
     let mut blocks = blocks().lock_mut();
-    println!("... blocks are mut"); // FIXME: <== why isn't this line reached ? we must be invoking lock_mut in some bad way.
+    // println!("... blocks are mut"); // FIXME: <== why isn't this line reached ? we must be invoking lock_mut in some bad way.
                                     // as it works in a raw delete, then it must be something we're doing int he merge codes
     if let Some(index) = blocks.iter().position(|block| block.id == msg_id) {
         println!("Found block {}, deleting", msg_id);
