@@ -13,10 +13,9 @@ edition = "2021"
 crate-type = ["cdylib"]
 
 [dependencies]
-zoon = { git = "https://github.com/MoonZoon/MoonZoon", rev = "15cb619faca5f78a47e08f4af4bfa595f0eb64b1" }
+zoon = { git = "https://github.com/MoonZoon/MoonZoon", rev = "5769c15d6376ce591120c994764809c1a65ed7bd" }
 rand = { version = "0.8.3", features = ["small_rng", "getrandom"], default-features = false }
 shared = { path = "../shared", features = ["frontend"] }
-fake = "2.4"
 
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ['-Oz']
