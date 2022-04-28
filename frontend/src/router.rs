@@ -60,11 +60,10 @@ pub fn router() -> &'static Router<Route> {
             }
             Route::BlockEdit { event_id, block_id } => {
                 println!("Block edit route");
-                // FIXME: Un-comment this when we're done testing
-                // if not(app::is_user_logged()) {
-                //     return router().replace(Route::Login);
-                // }
-                app::set_page_id(PageId::BlockEdit);
+                if not(app::is_user_logged()) {
+                    return router().replace(Route::Login);
+                }
+                app::set_page_id(PageId::BlockEdit{event_id, block_id});
                 println!("Routing to block_edit/{}/{}", event_id, block_id);
             }
             Route::Login => {

@@ -4,19 +4,21 @@ use crate::{
     login_page,
     router::{previous_route, router, Route},
 };
-use shared::{Word, BlockId};
+use shared::{BlockId, EventId, Word};
 use zoon::*;
 
 // ------ ------
 //     Types
 // ------ ------
 
-
 #[derive(Clone, Copy, PartialEq, PartialOrd)]
 pub enum PageId {
     Event,
     EventList,
-    BlockEdit,
+    BlockEdit {
+        event_id: EventId,
+        block_id: BlockId,
+    },
     Home,
     Login,
     Unknown,
@@ -28,7 +30,7 @@ pub struct RenderBlock {
     pub id: BlockId,
     pub speaker: String,
     pub raw_words: MutableVec<Word>,
-    pub full_text: Mutable<String>,  
+    pub full_text: Mutable<String>,
     pub is_visible: Mutable<bool>,
 }
 
@@ -86,7 +88,7 @@ pub fn root() -> impl Element {
 
 fn page() -> impl Element {
     El::new().child_signal(page_id().signal().map(|page_id| match page_id {
-        PageId::BlockEdit => block_edit_page::page().into_raw_element(),
+        PageId::BlockEdit { event_id, block_id } => block_edit_page::page(event_id, block_id).into_raw_element(),
         PageId::Event => event_edit_page::page().into_raw_element(),
         PageId::EventList => events_page::page().into_raw_element(),
         PageId::Home => El::new().child("Welcome Home!").into_raw_element(),

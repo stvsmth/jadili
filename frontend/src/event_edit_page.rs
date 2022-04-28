@@ -23,7 +23,7 @@ fn selected_block() -> &'static Mutable<Option<BlockId>> {
 }
 
 #[static_ref]
-fn blocks() -> &'static MutableVec<Arc<RenderBlock>> {
+pub fn blocks() -> &'static MutableVec<Arc<RenderBlock>> {
     MutableVec::new()
 }
 
@@ -40,7 +40,6 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
         }
         DownMsg::BlockCreated(msg) => {
             let mut blocks = blocks().lock_mut();
-            println!("Create block event");
             match blocks.iter().find(|block| block.id == msg.id) {
                 Some(block) => {
                     println!("... block {} already exists", block.id);
@@ -114,10 +113,6 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
                                     .full_text
                                     .lock_mut()
                                     .replace_range(.., full_text.as_str());
-                                println!(
-                                    "Full text: {}",
-                                    blocks[prev_idx].full_text.lock_ref().to_string()
-                                );
                             }
                         }
                     }
@@ -361,27 +356,31 @@ fn block_speaker(id: BlockId, speaker: String) -> impl Element {
 
 fn block_text(block: Arc<RenderBlock>) -> impl Element {
     let id = block.id;
+    RawHtmlEl::new("td")
+        .event_handler(move |_: events::Click| select_block(id))
+        .child(original_text_as_p(&block, "col-md-8"))
+}
+
+pub fn original_text_as_p(block: &Arc<RenderBlock>, width_class: &str) -> impl Element {
     let words = &block.raw_words;
-    RawHtmlEl::new("td").attr("class", "col-md-6").child(
-        RawHtmlEl::new("p")
-            .event_handler(move |_: events::Click| select_block(id))
-            .children_signal_vec(words.signal_vec_cloned().map(|word| {
-                let conf_class = if word.confidence <= 0.50 {
-                    "conf-low"
-                } else {
-                    ""
-                };
-                RawHtmlEl::new("span")
-                    .attr("class", conf_class)
-                    .child(format!("{} ", word.text))
-                    .attr("data-toggle", "tooltip")
-                    .attr("data-placement", "bottom")
-                    .attr(
-                        "title",
-                        format!("{:02.1}%", word.confidence * 100.0).as_str(),
-                    )
-            })),
-    )
+    RawHtmlEl::new("p")
+        .attr("class", width_class)
+        .children_signal_vec(words.signal_vec_cloned().map(|word| {
+            let conf_class = if word.confidence <= 0.50 {
+                "conf-low"
+            } else {
+                ""
+            };
+            RawHtmlEl::new("span")
+                .attr("class", conf_class)
+                .child(format!("{} ", word.text))
+                .attr("data-toggle", "tooltip")
+                .attr("data-placement", "bottom")
+                .attr(
+                    "title",
+                    format!("{:02.1}%", word.confidence * 100.0).as_str(),
+                )
+        }))
 }
 
 fn block_edit_button(id: BlockId) -> impl Element {
@@ -449,7 +448,7 @@ fn block_play_button(id: BlockId) -> impl Element {
 // ------ ------
 
 // TODO: This should be a method on the RenderBlock struct, but I have some things to figure out
-fn build_full_text(raw_words: MutableVecLockRef<Word>) -> String {
+pub fn build_full_text(raw_words: MutableVecLockRef<Word>) -> String {
     // Use the raw word structs to build up the space-delimited full text for validation by humans
     raw_words
         .iter()
