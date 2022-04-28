@@ -1,6 +1,7 @@
 use zoon::*;
 
 mod app;
+mod block_edit_page;
 mod event_edit_page;
 mod events_page;
 mod header;

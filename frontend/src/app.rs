@@ -1,23 +1,35 @@
 use crate::{
-    events_page,
-    event_edit_page,
+    block_edit_page, event_edit_page, events_page,
     header::header,
     login_page,
     router::{previous_route, router, Route},
 };
+use shared::{Word, BlockId};
 use zoon::*;
 
 // ------ ------
 //     Types
 // ------ ------
 
+
 #[derive(Clone, Copy, PartialEq, PartialOrd)]
 pub enum PageId {
     Event,
     EventList,
+    BlockEdit,
     Home,
     Login,
     Unknown,
+}
+
+// Cover several fields with interior mutability (and/or pub(crate))
+#[derive(Debug)]
+pub struct RenderBlock {
+    pub id: BlockId,
+    pub speaker: String,
+    pub raw_words: MutableVec<Word>,
+    pub full_text: Mutable<String>,  
+    pub is_visible: Mutable<bool>,
 }
 
 // ------ ------
@@ -74,6 +86,7 @@ pub fn root() -> impl Element {
 
 fn page() -> impl Element {
     El::new().child_signal(page_id().signal().map(|page_id| match page_id {
+        PageId::BlockEdit => block_edit_page::page().into_raw_element(),
         PageId::Event => event_edit_page::page().into_raw_element(),
         PageId::EventList => events_page::page().into_raw_element(),
         PageId::Home => El::new().child("Welcome Home!").into_raw_element(),

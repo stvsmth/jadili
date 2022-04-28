@@ -2,6 +2,7 @@ use crate::{
     app::{self, PageId},
     event_edit_page,
 };
+use shared::{BlockId, EventId};
 use std::collections::VecDeque;
 use zoon::{println, *};
 
@@ -57,6 +58,15 @@ pub fn router() -> &'static Router<Route> {
                 app::set_page_id(PageId::Event);
                 event_edit_page::set_event_id(event_id);
             }
+            Route::BlockEdit { event_id, block_id } => {
+                println!("Block edit route");
+                // FIXME: Un-comment this when we're done testing
+                // if not(app::is_user_logged()) {
+                //     return router().replace(Route::Login);
+                // }
+                app::set_page_id(PageId::BlockEdit);
+                println!("Routing to block_edit/{}/{}", event_id, block_id);
+            }
             Route::Login => {
                 println!("Login route");
                 if app::is_user_logged() {
@@ -81,7 +91,13 @@ pub enum Route {
     EventRoot,
 
     #[route("event", event_id)]
-    Event { event_id: usize },
+    Event { event_id: EventId },
+
+    #[route("block_edit", event_id, block_id)]
+    BlockEdit {
+        event_id: EventId,
+        block_id: BlockId,
+    },
 
     #[route("login")]
     Login,

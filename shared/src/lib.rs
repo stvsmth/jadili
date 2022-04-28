@@ -1,5 +1,8 @@
 use moonlight::*;
 
+pub type EventId = usize;
+pub type BlockId = usize;
+
 // ------ UpMsg ------
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -28,7 +31,7 @@ pub enum DownMsg {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(crate = "serde")]
 pub struct BlockMessage {
-    pub id: usize,
+    pub id: BlockId,
     pub speaker: String,
     pub words: Vec<Word>,
 }
@@ -36,14 +39,14 @@ pub struct BlockMessage {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(crate = "serde")]
 pub struct EventStreamMessage {
-    pub id: usize,
+    pub id: EventId,
     pub data: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(crate = "serde")]
 pub struct EventChoiceMessage {
-    pub id: usize,
+    pub id: EventId,
 }
 
 // ////////////////////////////////////////////////////////////////////////////////////////////

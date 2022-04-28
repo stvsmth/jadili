@@ -1,6 +1,6 @@
-use fake::faker::company::en::*;
-use fake::Fake;
-use shared::{BlockMessage, EventChoiceMessage, Word};
+use crate::app::RenderBlock;
+use crate::router::{router, Route};
+use shared::{BlockId, BlockMessage, EventChoiceMessage, EventId, Word};
 use shared::{DownMsg, UpMsg};
 use std::ops::Not;
 use std::sync::Arc;
@@ -12,9 +12,6 @@ use zoon::{
 // ------ ------
 // Reference reading around Mutable and signals
 // https://docs.rs/futures-signals/0.3.24/futures_signals/tutorial/index.html
-
-// pub type EventId = usize;
-type BlockId = usize;
 
 // ------ ------
 //    States
@@ -31,17 +28,8 @@ fn blocks() -> &'static MutableVec<Arc<RenderBlock>> {
 }
 
 #[static_ref]
-fn event_id() -> &'static Mutable<Option<usize>> {
+fn event_id() -> &'static Mutable<Option<EventId>> {
     Mutable::new(None)
-}
-
-#[derive(Debug)]
-struct RenderBlock {
-    id: usize,
-    speaker: String,
-    raw_words: MutableVec<Word>,
-    full_text: Mutable<String>,
-    is_visible: Mutable<bool>,
 }
 
 #[static_ref]
@@ -153,55 +141,26 @@ fn blocks_exist() -> impl Signal<Item = bool> {
 // ------ ------
 //   Commands
 // ------ ------
-pub fn set_event_id(id: usize) {
+pub fn set_event_id(id: EventId) {
     event_id().set(Some(id));
 }
 
-fn edit_block(id: BlockId) {
+pub fn edit_block(id: BlockId) {
     Task::start(async move {
         let blocks = blocks().lock_ref();
         match blocks.iter().find(|block| block.id == id) {
             None => println!("... no block #{} to edit", id),
             Some(block) => {
-                let new_text: Vec<Word> = vec![
-                    Word {
-                        confidence: 99.0,
-                        start: 0,
-                        end: 0,
-                        speaker: Some(block.speaker.clone()),
-                        text: Buzzword().fake(),
-                    },
-                    Word {
-                        confidence: 99.0,
-                        start: 0,
-                        end: 0,
-                        speaker: Some(block.speaker.clone()),
-                        text: BuzzwordMiddle().fake(),
-                    },
-                    Word {
-                        confidence: 99.0,
-                        start: 0,
-                        end: 0,
-                        speaker: Some(block.speaker.clone()),
-                        text: format!("{}.", BuzzwordTail().fake::<String>()),
-                    },
-                ];
-                let result = connection()
-                    .send_up_msg(UpMsg::EditBlock(BlockMessage {
-                        id,
-                        speaker: block.speaker.to_string(),
-                        words: new_text,
-                    }))
-                    .await;
-                if let Err(error) = result {
-                    println!("Failed to send edit message: {:?}", error);
-                }
+                router().go(Route::BlockEdit {
+                    event_id: event_id().get().unwrap(), // FIXME: ... hmm, should this really be optional
+                    block_id: block.id,
+                });
             }
         }
     });
 }
 
-pub fn choose_event(event_id: Option<usize>) {
+pub fn choose_event(event_id: Option<EventId>) {
     if let Some(id) = event_id {
         println!("choose_event: inside let");
         Task::start(async move {
@@ -300,7 +259,7 @@ pub fn page() -> impl Element {
 fn jumbotron() -> impl Element {
     let event_name = match event_id().get() {
         Some(id) => format!("event_{:04}", id),
-        None => "test_event".to_string(),  // TODO! What should we do if event id isn't set???
+        None => "test_event".to_string(), // TODO! What should we do if event id isn't set???
     };
 
     RawHtmlEl::new("div").attr("class", "jumbotron").child(

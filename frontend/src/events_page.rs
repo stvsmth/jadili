@@ -8,8 +8,8 @@ use zoon::{named_color::*, *};
 pub fn page() -> impl Element {
     Column::new()
         .s(Spacing::new(20))
-        .item(link("Gettysburg Address", Route::Event{event_id: 1}))
-        // .item(link("TBD", Route::Event{event_id: 2}))
+        .item(link("Gettysburg Address", Route::Event { event_id: 1 }))
+    // .item(link("TBD", Route::Event{event_id: 2}))
 }
 
 // TODO! duplicated in header page, move somewhere more useful (app?)
