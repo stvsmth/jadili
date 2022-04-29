@@ -9,7 +9,7 @@ pub type BlockId = usize;
 #[serde(crate = "serde")]
 pub enum UpMsg {
     ChooseEvent(EventChoiceMessage),
-    EditBlock(BlockMessage),
+    EditBlock(BlockEdited),
     DeleteBlock(BlockMessage),
     MergeBlockAbove(BlockMessage),
 }
@@ -21,12 +21,20 @@ pub enum UpMsg {
 pub enum DownMsg {
     EventSelected(EventStreamMessage),
     BlockCreated(BlockMessage),
-    BlockEdited(BlockMessage),
+    BlockEdited(BlockEdited),
     BlockDeleted(BlockMessage),
     BlockMergedWithAbove(BlockMessage),
 }
 
 // ------ Message ------
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(crate = "serde")]
+pub struct BlockEdited {
+    pub id: BlockId,
+    pub speaker: String,
+    pub corrected_text: String,
+}
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(crate = "serde")]

@@ -36,7 +36,7 @@ fn event_id() -> &'static Mutable<Option<EventId>> {
 pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
     Connection::new(|down_msg, cor_id| match down_msg {
         DownMsg::EventSelected(msg) => {
-            println!("Chose event {:?}, cor_id: {}", msg.id, cor_id);
+            println!("DownMsg Choose event {:?}, cor_id: {}", msg.id, cor_id);
         }
         DownMsg::BlockCreated(msg) => {
             let mut blocks = blocks().lock_mut();
@@ -68,9 +68,7 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
             let blocks = blocks().lock_ref();
             match blocks.iter().find(|block| block.id == msg.id) {
                 Some(block) => {
-                    for word in msg.words {
-                        block.raw_words.lock_mut().push_cloned(word)
-                    }
+                    block.full_text.replace(msg.corrected_text);
                 }
                 None => println!("No block {:?} found to update", msg.id),
             }
@@ -91,7 +89,7 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
                 Some(idx) => {
                     let blocks = blocks().lock_ref();
                     match blocks.iter().find(|block| block.id == msg.id) {
-                        None => println!(" ... no block #{} found to merge above", msg.id),
+                        None => println!(" ... no block {} found to merge above", msg.id),
                         Some(_) => {
                             let mut prev_idx = idx - 1;
                             // walk back blocks until we find the first visible block above us
@@ -117,7 +115,7 @@ pub fn connection() -> &'static Connection<UpMsg, DownMsg> {
                         }
                     }
                 }
-                None => println!("No current block {} found, cannot merge above", msg.id),
+                None => eprintln!("No current block {} found, cannot merge above", msg.id),
             };
         }
 
@@ -144,7 +142,7 @@ pub fn edit_block(id: BlockId) {
     Task::start(async move {
         let blocks = blocks().lock_ref();
         match blocks.iter().find(|block| block.id == id) {
-            None => println!("... no block #{} to edit", id),
+            None => eprintln!("No block {} to edit!", id),
             Some(block) => {
                 router().go(Route::BlockEdit {
                     event_id: event_id().get().unwrap(), // FIXME: ... hmm, should this really be optional
@@ -157,16 +155,13 @@ pub fn edit_block(id: BlockId) {
 
 pub fn choose_event(event_id: Option<EventId>) {
     if let Some(id) = event_id {
-        println!("choose_event: inside let");
         Task::start(async move {
-            println!("choose_event: task started");
             let result = connection()
                 .send_up_msg(UpMsg::ChooseEvent(EventChoiceMessage { id }))
                 .await;
             if let Err(error) = result {
-                eprintln!("Failed to send choose event message: {:?}", error);
+                eprintln!("Failed to send choose event message: {:?}.", error);
             }
-            println!("choose_event sent");
         });
     }
 }
@@ -177,7 +172,7 @@ fn select_block(id: BlockId) {
 }
 
 fn remove_block(id: BlockId) {
-    println!("Remove block {}", id);
+    println!("Remove block {}.", id);
     Task::start(async move {
         let result = connection()
             .send_up_msg(UpMsg::DeleteBlock(BlockMessage {
@@ -187,17 +182,17 @@ fn remove_block(id: BlockId) {
             }))
             .await;
         if let Err(error) = result {
-            eprintln!("Failed to send delete block message: {:?}", error);
+            eprintln!("Failed to send delete block message: {:?}.", error);
         }
     });
 }
 
-fn play_block(id: BlockId) {
+pub fn play_block(id: BlockId) {
     let blocks = blocks().lock_ref();
     let found = blocks.iter().find(|b| b.id == id);
 
     match found {
-        None => println!(" No block #{} found to play???", id),
+        None => eprintln!("No block {} found to play!", id),
         Some(block) => {
             let mut start_time =
                 (block.raw_words.lock_ref().first().unwrap().start as f32 / 1000.0) - 1.0;
@@ -206,20 +201,20 @@ fn play_block(id: BlockId) {
             }
             let end_time = block.raw_words.lock_ref().last().unwrap().start as f32 / 1000.0;
             let duration = end_time - start_time + 1.0;
-            println!("Play block starting at {} for {}", start_time, duration);
+            println!("Play block starting at {} for {}.", start_time, duration);
             play_from(start_time, duration);
         }
     }
 }
 
 fn merge_above(id: BlockId) {
-    println!("Merge above {}", id);
+    println!("Merge above {}.", id);
     Task::start(async move {
         let blocks = blocks().lock_ref();
         let found = blocks.iter().find(|b| b.id == id);
 
         match found {
-            None => println!("Merge block #{} not found", id),
+            None => eprintln!("Merge block {} not found!", id),
             Some(block) => {
                 let mut words_to_merge: Vec<Word> = Vec::new();
                 for word in block.raw_words.lock_ref().iter() {
@@ -252,36 +247,43 @@ pub fn page() -> impl Element {
 }
 
 fn jumbotron() -> impl Element {
+    RawHtmlEl::new("div").attr("class", "jumbotron").child(
+        RawHtmlEl::new("div")
+            .attr("class", "row")
+            .child(
+                RawHtmlEl::new("div")
+                    .attr("class", "col-md-6")
+                    .child(RawHtmlEl::new("h1").child("Jadili")),
+            )
+            .child(
+                RawHtmlEl::new("div")
+                    .attr("class", "col-md-6")
+                    .child(action_buttons()),
+            )
+            .child(player_element()),
+    )
+}
+
+pub fn player_element() -> impl Element {
     let event_name = match event_id().get() {
         Some(id) => format!("event_{:04}", id),
         None => "test_event".to_string(), // TODO! What should we do if event id isn't set???
     };
-
-    RawHtmlEl::new("div").attr("class", "jumbotron").child(
-        RawHtmlEl::new("div").attr("class", "row").children([
-            RawHtmlEl::new("div")
-                .attr("class", "col-md-6")
-                .child(RawHtmlEl::new("h1").child("Jadili")),
-            RawHtmlEl::new("div")
-                .attr("class", "col-md-6")
-                .child(action_buttons()),
-            RawHtmlEl::new("div").child(
-                RawHtmlEl::new("audio")
-                    .attr("id", "audio-player")
-                    .attr("class", "player col-md-5")
-                    .attr("controls", "")
-                    .attr("async", "")
-                    .attr(
-                        "src",
-                        // FIXME: Set this to backblaze/jadili/events/<id>/__event_audio.wav
-                        format!(
-                            "http://localhost:8080/_api/public/assets/{}/__event_audio.wav",
-                            event_name
-                        )
-                        .as_str(),
-                    ),
+    RawHtmlEl::new("div").child(
+        RawHtmlEl::new("audio")
+            .attr("id", "audio-player")
+            .attr("class", "player col-md-5")
+            .attr("controls", "")
+            .attr("async", "")
+            .attr(
+                "src",
+                // FIXME: Set this to backblaze/jadili/events/<id>/__event_audio.wav
+                format!(
+                    "http://localhost:8080/_api/public/assets/{}/__event_audio.wav",
+                    event_name
+                )
+                .as_str(),
             ),
-        ]),
     )
 }
 
@@ -448,7 +450,7 @@ fn block_play_button(id: BlockId) -> impl Element {
 // ------ ------
 
 // TODO: This should be a method on the RenderBlock struct, but I have some things to figure out
-pub fn build_full_text(raw_words: MutableVecLockRef<Word>) -> String {
+fn build_full_text(raw_words: MutableVecLockRef<Word>) -> String {
     // Use the raw word structs to build up the space-delimited full text for validation by humans
     raw_words
         .iter()

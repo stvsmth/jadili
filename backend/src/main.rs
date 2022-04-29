@@ -47,18 +47,18 @@ async fn up_msg_handler(req: UpMsgRequest<UpMsg>) {
 
     match up_msg {
         UpMsg::DeleteBlock(block) => {
-            println!("Delete Block{:?}", block.id);
-            // sessions::broadcast_down_msg(&DownMsg::BlockDeleted(block), cor_id).await;
+            println!("Delete Block {:?}", block.id);
+            sessions::broadcast_down_msg(&DownMsg::BlockDeleted(block), cor_id).await;
         }
         UpMsg::EditBlock(block) => {
-            println!("Edit Block{:?}", block.id);
+            println!("Edit Block {:?}", block.id);
             sessions::broadcast_down_msg(&DownMsg::BlockEdited(block), cor_id).await;
         }
         UpMsg::MergeBlockAbove(block) => {
             sessions::broadcast_down_msg(&DownMsg::BlockMergedWithAbove(block), cor_id).await;
         }
         UpMsg::ChooseEvent(event) => {
-            println!("Choose event {}", event.id);
+            println!("Choose Event {}", event.id);
             let stream = EventStreamMessage {
                 id: event.id,
                 data: format!("Selected event {}", event.id),
