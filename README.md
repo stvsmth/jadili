@@ -6,7 +6,7 @@
 cd ${PROJECT_HOME}
 cargo install mzoon \
     --git https://github.com/MoonZoon/MoonZoon \
-    --rev 15cb619faca5f78a47e08f4af4bfa595f0eb64b1 \
+    --rev 5769c15d6376ce591120c994764809c1a65ed7bd \
     --root cargo_install_root \
     --locked
 mv cargo_install_root/bin/mzoon mzoon

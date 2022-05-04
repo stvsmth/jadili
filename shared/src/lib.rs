@@ -1,12 +1,15 @@
 use moonlight::*;
 
+pub type EventId = usize;
+pub type BlockId = usize;
+
 // ------ UpMsg ------
 
 #[derive(Serialize, Deserialize, Debug)]
 #[serde(crate = "serde")]
 pub enum UpMsg {
     ChooseEvent(EventChoiceMessage),
-    EditBlock(BlockMessage),
+    EditBlock(BlockEdited),
     DeleteBlock(BlockMessage),
     MergeBlockAbove(BlockMessage),
 }
@@ -18,7 +21,7 @@ pub enum UpMsg {
 pub enum DownMsg {
     EventSelected(EventStreamMessage),
     BlockCreated(BlockMessage),
-    BlockEdited(BlockMessage),
+    BlockEdited(BlockEdited),
     BlockDeleted(BlockMessage),
     BlockMergedWithAbove(BlockMessage),
 }
@@ -27,8 +30,16 @@ pub enum DownMsg {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(crate = "serde")]
+pub struct BlockEdited {
+    pub id: BlockId,
+    pub speaker: String,
+    pub corrected_text: String,
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
+#[serde(crate = "serde")]
 pub struct BlockMessage {
-    pub id: usize,
+    pub id: BlockId,
     pub speaker: String,
     pub words: Vec<Word>,
 }
@@ -36,14 +47,14 @@ pub struct BlockMessage {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(crate = "serde")]
 pub struct EventStreamMessage {
-    pub id: usize,
+    pub id: EventId,
     pub data: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(crate = "serde")]
 pub struct EventChoiceMessage {
-    pub id: usize,
+    pub id: EventId,
 }
 
 // ////////////////////////////////////////////////////////////////////////////////////////////
